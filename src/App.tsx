@@ -13,14 +13,14 @@ const Demo=()=><span className="chip" title="Sample data, not real prices">Demo 
 const go=(p:string)=>{location.hash=p}
 const best=(p:Product)=>offersFor(p).reduce((a,b)=>a.price<b.price?a:b)
 
-function MapView({center,loc,shops}:{center:Loc;loc:Loc;shops:Shop[]}){
+function MapView({center,loc,shops}:{center:Loc;loc:Loc;shops:(Shop&{verified?:boolean})[]}){
   const el=useRef<HTMLDivElement>(null)
   useEffect(()=>{
     if(!el.current)return
     const m=L.map(el.current).setView([center.lat,center.lng],12)
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors',maxZoom:19}).addTo(m)
     L.circleMarker([loc.lat,loc.lng],{radius:9,color:'#087443',fillColor:'#0BA95B',fillOpacity:1}).addTo(m).bindPopup('Your selected location')
-    shops.forEach(s=>L.circleMarker([s.lat,s.lng],{radius:7,color:'#17211B',fillColor:'#fff',fillOpacity:1}).addTo(m).bindPopup(`${s.name}<br/>${s.area}<br/>${km(loc,s).toFixed(1)} km · Not verified`))
+    shops.forEach(s=>L.circleMarker([s.lat,s.lng],{radius:7,color:'#17211B',fillColor:'#fff',fillOpacity:1}).addTo(m).bindPopup(`${s.name}<br/>${s.area}<br/>${km(loc,s).toFixed(1)} km · ${s.verified?'Verified':'Not verified'}`))
     return()=>{m.remove()}
   },[center,loc,shops])
   return <div ref={el} className="h-72 w-full rounded-2xl border" role="region" aria-label="Map of added shops"/>
@@ -97,6 +97,8 @@ function Card({p,c}:{p:Product;c:C}){
 
 function Home({q,setQ,...c}:C){
   const [load,setLoad]=useState(true)
+  const approvedPrices=c.subs.filter((s:any)=>s.status==='Approved')
+  const verifiedShops=c.shops.filter((s:Shop&{verified?:boolean})=>s.verified)
   useEffect(()=>{const t=setTimeout(()=>setLoad(false),500);return()=>clearTimeout(t)},[])
   const nearby=useMemo(()=>[...PRODUCTS].sort((a,b)=>c.dist(best(a).shop)-c.dist(best(b).shop)).slice(0,4),[c.loc])
   const moves=[...PRODUCTS].sort((a,b)=>Math.abs(change(b).pct)-Math.abs(change(a).pct)).slice(0,4)
@@ -108,6 +110,8 @@ function Home({q,setQ,...c}:C){
         <input aria-label="Search products" className="inp !text-ink" placeholder="Search rice, phone, TV, fan…" value={q} onChange={e=>setQ(e.target.value)}/>
         <button className="btn !bg-ink">Search</button></form></section>
     <section><h2 className="mb-3 text-lg font-bold">Categories</h2><div className="flex flex-wrap gap-2">{CATS.map(k=><a key={k} className="btn2" href={'#/search?q=&cat='+k}>{k}</a>)}</div></section>
+    {approvedPrices.length>0&&<section><div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-bold">Approved community prices</h2><span className="chip">{approvedPrices.length} approved</span></div><div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">{approvedPrices.map((s:any,i:number)=><article className="card" key={s.saved||i}><div className="flex items-start justify-between gap-2"><h3 className="font-semibold">{s.product}</h3><span className="chip">Approved</span></div><p className="mt-2 text-xl font-extrabold text-deep">{money(Number(s.price))}</p><p className="text-sm text-mute">{s.shop} · {s.area}</p><p className="mt-1 text-xs text-mute">Price seen: {s.date}</p></article>)}</div></section>}
+    {verifiedShops.length>0&&<section><div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-bold">Verified nearby shops</h2><span className="chip">{verifiedShops.length} verified</span></div><div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">{verifiedShops.map((s:Shop&{verified?:boolean})=><article className="card" key={s.id}><h3 className="font-semibold">{s.name}</h3><p className="text-sm text-mute">{s.area} · {c.dist(s).toFixed(1)} km away</p><span className="chip mt-2 inline-block">Verified shop</span></article>)}</div></section>}
     {load?<div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">{[1,2,3,4].map(i=><div key={i} className="sk"/>)}</div>:<>
     <section><h2 className="mb-3 text-lg font-bold">Nearby prices</h2><div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">{nearby.map(p=><Card key={p.id} p={p} c={c}/>)}</div></section>
     <section><h2 className="mb-3 text-lg font-bold">Recent price changes</h2><div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">{moves.map(p=><Card key={p.id} p={p} c={c}/>)}</div></section></>}
@@ -184,7 +188,7 @@ function Shops(c:C){
       {notice&&<p role="status" className="rounded-lg bg-green-50 p-2 text-sm text-green-800">{notice}</p>}
       <button type="submit" className="btn w-full">Save shop</button>
     </form>
-    {list.length?<ul className="grid gap-3 sm:grid-cols-2">{list.map((s:Shop)=><li key={s.id} className="card"><p className="font-semibold">{s.name}</p><p className="text-sm text-mute">{s.area} · {c.dist(s).toFixed(1)} km away · Not verified</p><div className="mt-2 flex gap-2"><a className="btn2" target="_blank" rel="noreferrer" href={`https://www.openstreetmap.org/directions?from=${c.loc.lat},${c.loc.lng}&to=${s.lat},${s.lng}`}>Get directions</a><button type="button" className="btn2" onClick={()=>c.setShops(c.shops.filter((x:Shop)=>x.id!==s.id))}>Remove</button></div></li>)}</ul>:<Empty t="No shops added yet" d="There are no built-in sample shops. Add a real shop using the form above."/ >}</div>
+    {list.length?<ul className="grid gap-3 sm:grid-cols-2">{list.map((s:Shop)=><li key={s.id} className="card"><p className="font-semibold">{s.name}</p><p className="text-sm text-mute">{s.area} · {c.dist(s).toFixed(1)} km away · {(s as Shop&{verified?:boolean}).verified?'Verified':'Not verified'}</p><div className="mt-2 flex gap-2"><a className="btn2" target="_blank" rel="noreferrer" href={`https://www.openstreetmap.org/directions?from=${c.loc.lat},${c.loc.lng}&to=${s.lat},${s.lng}`}>Get directions</a><button type="button" className="btn2" onClick={()=>c.setShops(c.shops.filter((x:Shop)=>x.id!==s.id))}>Remove</button></div></li>)}</ul>:<Empty t="No shops added yet" d="There are no built-in sample shops. Add a real shop using the form above."/ >}</div>
 }
 function Basket(c:C){
   const items=PRODUCTS.filter(p=>c.basket[p.id])
