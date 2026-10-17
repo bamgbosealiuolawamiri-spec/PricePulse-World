@@ -4,15 +4,26 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import AuthPage from './Auth'
 import {AREAS,CATS,CUR,SHOPS,PRODUCTS,offersFor,history,change,km,Loc,Product,Shop} from './data'
+import {dbRequest, type SessionAccount} from './db'
 
 function useLS<T>(k:string,init:T):[T,(v:T)=>void]{
   const [v,s]=useState<T>(()=>{try{const x=localStorage.getItem('pp:'+k);return x?JSON.parse(x):init}catch{return init}})
   return [v,(n:T)=>{s(n);try{localStorage.setItem('pp:'+k,JSON.stringify(n))}catch{/* storage unavailable */}}]
 }
-const money=(n:number,c='NGN')=>`${CUR[c].symbol}${Math.round(n*CUR[c].rate).toLocaleString('en-NG')}`
+const money=(n:number,c='NGN')=>{try{return new Intl.NumberFormat(undefined,{style:'currency',currency:c,maximumFractionDigits:2}).format(n)}catch{return `${c} ${n.toLocaleString()}`}}
 const Demo=()=><span className="chip" title="Sample data, not real prices">Demo data</span>
 const go=(p:string)=>{location.hash=p}
 const best=(p:Product)=>offersFor(p).reduce((a,b)=>a.price<b.price?a:b)
+
+const mapShop=(r:any)=>({id:r.id,name:r.name,area:[r.address,r.city,r.country].filter(Boolean).join(', '),lat:Number(r.latitude),lng:Number(r.longitude),verified:r.verification_status==='verified',country:r.country,city:r.city,address:r.address,status:r.verification_status,owner_id:r.owner_id})
+const mapPrice=(r:any)=>({id:r.id,product:r.product_name,shop:r.shop_name,area:r.location,price:Number(r.price),date:r.date_seen,saved:r.created_at,status:r.verification_status==='approved'?'Approved':r.verification_status==='rejected'?'Rejected':'Pending verification',currency:r.currency_code||'USD',country:r.country,submitted_by:r.submitted_by})
+async function fetchSharedData(account:SessionAccount|null){
+  const [shopRows,priceRows]=await Promise.all([
+    dbRequest<any[]>('shops',{account,query:'select=*&order=created_at.desc&limit=500'}),
+    dbRequest<any[]>('price_reports',{account,query:'select=*&order=created_at.desc&limit=500'})
+  ])
+  return {shops:(shopRows||[]).map(mapShop),subs:(priceRows||[]).map(mapPrice)}
+}
 
 function MapView({center,loc,shops}:{center:Loc;loc:Loc;shops:(Shop&{verified?:boolean})[]}){
   const el=useRef<HTMLDivElement>(null)
@@ -34,8 +45,14 @@ export default function App(){
   const [saved,setSaved]=useLS<string[]>('saved',[])
   const [alerts,setAlerts]=useLS<Record<string,number>>('alerts',{})
   const [basket,setBasket]=useLS<Record<string,number>>('basket',{})
-  const [subs,setSubs]=useLS<any[]>('subs',[])
-  const [shops,setShops]=useLS<Shop[]>('shops',[])
+  const [subs,setSubs]=useState<any[]>([])
+  const [shops,setShops]=useState<any[]>([])
+  const [country,setCountry]=useLS('country','Nigeria')
+  const [city,setCity]=useLS('city','Lagos')
+  const [currency,setCurrency]=useLS('currency','NGN')
+  const [dataError,setDataError]=useState('')
+  const refreshSharedData=async()=>{try{const data=await fetchSharedData(account);setShops(data.shops);setSubs(data.subs);setDataError('')}catch(e){setDataError(e instanceof Error?e.message:'Could not load shared data.')}}
+  useEffect(()=>{let active=true;fetchSharedData(account).then(data=>{if(active){setShops(data.shops);setSubs(data.subs);setDataError('')}}).catch(e=>{if(active)setDataError(e instanceof Error?e.message:'Could not load shared data.')});return()=>{active=false}},[account?.id,account?.access_token])
   const [account,setAccount]=useLS<{id:string;email:string;name:string;access_token?:string;refresh_token?:string}|null>('account',null)
   const [geoMsg,setGeoMsg]=useState('')
   const [q,setQ]=useState('')
@@ -50,7 +67,7 @@ export default function App(){
   const [route,arg]=hash.replace('#/','').split('?')[0].split('/')
   const toggleSave=(id:string)=>setSaved(saved.includes(id)?saved.filter(x=>x!==id):[...saved,id])
   const dist=(s:{lat:number;lng:number})=>km(loc,s)
-  const ctx={loc,saved,toggleSave,alerts,setAlerts,basket,setBasket,subs,setSubs,shops,setShops,dist}
+  const ctx={loc,saved,toggleSave,alerts,setAlerts,basket,setBasket,subs,setSubs,shops,setShops,dist,account,country,setCountry,city,setCity,currency,setCurrency,refreshSharedData}
 
   const links=[['','Home'],['search','Search'],['shops','Shops'],['basket','Basket'],['saved','Saved'],['submit','Submit price'],['admin','Admin'],['auth',account?'Account':'Log in']]
   return <div className="min-h-screen flex flex-col">
@@ -64,11 +81,13 @@ export default function App(){
       {menu&&<nav className="grid gap-1 border-t p-3 md:hidden" aria-label="Mobile">{links.map(([h,l])=><a key={h} href={'#/'+h} onClick={()=>setMenu(false)} className="rounded-lg px-3 py-3 font-medium hover:bg-soft">{l}</a>)}</nav>}
     </header>
     <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">
-      <div className="mb-4 flex flex-wrap items-center gap-2 text-sm"><span className="text-mute">📍 {loc.name}</span>
-        <select aria-label="Choose area" className="rounded-lg border px-2 py-1" value={AREAS.some(a=>a.name===loc.name)?loc.name:''} onChange={e=>{const a=AREAS.find(x=>x.name===e.target.value);if(a){setLoc(a);setGeoMsg('')}}}><option value="" disabled>Choose area</option>{AREAS.map(a=><option key={a.name}>{a.name}</option>)}</select>
-        <button className="btn2 !py-1" onClick={locate}>Use my location</button>
-        <span className="text-mute">Currency: NGN</span></div>
+      <div className="mb-4 flex flex-wrap items-center gap-2 text-sm"><span className="text-mute">🌍 Market</span>
+        <label className="text-xs text-mute">Country<input aria-label="Market country" className="ml-1 rounded-lg border px-2 py-1 text-sm text-slate-900" value={country} onChange={e=>setCountry(e.target.value)} placeholder="Country" /></label>
+        <label className="text-xs text-mute">City<input aria-label="Market city" className="ml-1 rounded-lg border px-2 py-1 text-sm text-slate-900" value={city} onChange={e=>setCity(e.target.value)} placeholder="City" /></label>
+        <label className="text-xs text-mute">Currency<select aria-label="Display currency" className="ml-1 rounded-lg border px-2 py-1 text-sm text-slate-900" value={currency} onChange={e=>setCurrency(e.target.value)}>{['NGN','GHS','KES','ZAR','GBP','USD','CAD','EUR','INR','AUD'].map(code=><option key={code} value={code}>{code}</option>)}</select></label>
+        <button className="btn2 !py-1" onClick={locate}>Use my location</button></div>
       {geoMsg&&<p role="status" className="mb-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{geoMsg}</p>}
+      {dataError&&<p role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">Shared data could not load: {dataError}</p>}
       {route===''&&<Home q={q} setQ={setQ} {...ctx}/>}
       {route==='auth'&&<AuthPage mode={hash.includes('mode=signup')?'signup':'login'} account={account} setAccount={setAccount}/>}
       {route==='search'&&<Search {...ctx} q={new URLSearchParams(hash.includes('?')?hash.slice(hash.indexOf('?')+1):'').get('q')||''} cat={new URLSearchParams(hash.includes('?')?hash.slice(hash.indexOf('?')+1):'').get('cat')||''}/>}
@@ -157,18 +176,13 @@ function Home({q,setQ,...c}:C){
 }
 
 function Search({q,cat,...c}:C){
-  const [load,setLoad]=useState(true),[err,setErr]=useState(false),[sort,setSort]=useState('price'),[tick,setTick]=useState(0)
-  useEffect(()=>{setLoad(true);const t=setTimeout(()=>{setLoad(false)},350);return()=>clearTimeout(t)},[q,cat,tick])
-  const [text,setText]=useState(q);useEffect(()=>setText(q),[q])
-  let res=PRODUCTS.filter(p=>(!q||p.name.toLowerCase().includes(q.toLowerCase())||p.cat.toLowerCase().includes(q.toLowerCase()))&&(!cat||p.cat===cat))
-  res=[...res].sort((a,b)=>sort==='price'?best(a).price-best(b).price:c.dist(best(a).shop)-c.dist(best(b).shop))
-  return <div><form className="mb-4 flex gap-2" role="search" onSubmit={e=>{e.preventDefault();go('/search?q='+encodeURIComponent(text)+(cat?'&cat='+encodeURIComponent(cat):''))}}><input aria-label="Search" className="inp" value={text} onChange={e=>setText(e.target.value)} placeholder="Search products"/><button className="btn">Search</button></form>
-    <div className="mb-4 flex flex-wrap items-center gap-2"><a className={`chip ${!cat?'!bg-brand !text-white':''}`} href={'#/search?q='+encodeURIComponent(q)}>All</a>{CATS.map(k=><a key={k} className={`chip ${cat===k?'!bg-brand !text-white':''}`} href={`#/search?q=${encodeURIComponent(q)}&cat=${encodeURIComponent(k)}`}>{k}</a>)}
-      <select aria-label="Sort" className="ml-auto rounded-lg border px-2 py-1 text-sm" value={sort} onChange={e=>setSort(e.target.value)}><option value="price">Lowest price</option><option value="dist">Nearest</option></select></div>
-    {err?<div role="alert" className="card text-center"><p>Something went wrong loading results.</p><button className="btn mt-2" onClick={()=>{setErr(false);setTick(tick+1)}}>Retry</button></div>
-    :load?<div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">{[1,2,3].map(i=><div key={i} className="sk"/>)}</div>
-    :res.length===0?<Empty t="No products found" d="Try another word or category. No matching product is listed yet."/>
-    :<div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">{res.map(p=><Card key={p.id} p={p} c={c}/>)}</div>}</div>
+  const [text,setText]=useState(q),[sort,setSort]=useState('price');useEffect(()=>setText(q),[q])
+  const reports=(c.subs||[]).filter((r:any)=>r.status==='Approved'&&(!q||String(r.product).toLowerCase().includes(q.toLowerCase()))&&(!cat||String(r.category||'Other')===cat))
+  const groups=Object.values(reports.reduce((acc:any,r:any)=>{const key=[r.product,r.country,r.currency].join('|');if(!acc[key])acc[key]={key,product:r.product,country:r.country,currency:r.currency||'USD',reports:[]};acc[key].reports.push(r);return acc},{})).map((g:any)=>({...g,reports:g.reports.sort((a:any,b:any)=>a.price-b.price)}))
+  const results=groups.sort((a:any,b:any)=>sort==='price'?(a.reports[0]?.price||0)-(b.reports[0]?.price||0):String(a.country).localeCompare(String(b.country)))
+  return <div><form className="mb-4 flex gap-2" role="search" onSubmit={e=>{e.preventDefault();go('/search?q='+encodeURIComponent(text)+(cat?'&cat='+encodeURIComponent(cat):''))}}><input aria-label="Search" className="inp" value={text} onChange={e=>setText(e.target.value)} placeholder="Search verified community prices worldwide"/><button className="btn">Search</button></form>
+    <div className="mb-4 flex flex-wrap items-center gap-2"><span className="chip">Approved real reports only</span><select aria-label="Sort" className="ml-auto rounded-lg border px-2 py-1 text-sm" value={sort} onChange={e=>setSort(e.target.value)}><option value="price">Lowest price in each currency</option><option value="country">Country</option></select></div>
+    {!results.length?<Empty t="No approved prices found" d="Try another search, or submit a real price you have checked. We do not generate sample prices."/>:<div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">{results.map((g:any)=><article className="card" key={g.key}><span className="chip">{g.country}</span><h2 className="mt-2 font-bold">{g.product}</h2><p className="mt-2 text-2xl font-extrabold text-deep">{money(g.reports[0].price,g.currency)}</p><p className="mt-1 text-sm text-mute">Lowest approved report in {g.currency} · {g.reports[0].shop}</p><p className="mt-2 text-xs text-mute">{g.reports.length} approved report(s) · {g.reports[0].area}</p></article>)}</div>}</div>
 }
 
 function Detail({id,...c}:C){
@@ -249,28 +263,7 @@ function Saved(c:C){
 
 
 function Admin(c:C){
-  const pending=c.subs.filter((s:any)=>!['Approved','Rejected'].includes(s.status||'Pending verification'))
-  const reviewPrice=(index:number,status:string)=>{
-    const target=c.subs[index]
-    c.setSubs(c.subs.map((s:any,i:number)=>i===index?{...s,status,reviewedAt:new Date().toISOString()}:s))
-  }
-  const updateShop=(id:string,verified:boolean)=>{
-    c.setShops(c.shops.map((s:Shop&{verified?:boolean})=>s.id===id?{...s,verified}:s))
-  }
-  return <div className="space-y-5">
-    <div><h1 className="text-2xl font-extrabold">Verification dashboard</h1><p className="mt-1 text-sm text-mute">Review submitted shop details and price reports before treating them as trusted.</p></div>
-    <div role="note" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900"><b>Prototype limitation:</b> this dashboard only reviews data saved in this browser. It has no administrator login and cannot securely approve shared/public reports. Do not use it as a production admin console until authentication and a shared database are connected.</div>
-    <section className="space-y-3"><div className="flex items-center justify-between"><h2 className="text-lg font-bold">Price reports</h2><span className="chip">{pending.length} pending</span></div>
-      {!c.subs.length?<Empty t="No price reports yet" d="Reports submitted from this browser will appear here for review."/>:
-      <ul className="space-y-3">{c.subs.map((s:any,i:number)=><li key={s.saved||i} className="card"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-semibold">{s.product}</p><p className="text-sm">{money(Number(s.price))} · {s.shop}, {s.area}</p><p className="text-xs text-mute">Seen {s.date} · Submitted {s.saved?new Date(s.saved).toLocaleString():'date unavailable'}</p><p className="mt-1 text-sm">Status: <b className={s.status==='Approved'?'text-brand':s.status==='Rejected'?'text-red-700':'text-amber-800'}>{s.status||'Pending verification'}</b></p></div>
-      {(s.status||'Pending verification')==='Pending verification'&&<div className="flex gap-2"><button className="btn" onClick={()=>reviewPrice(i,'Approved')}>Approve</button><button className="btn2" onClick={()=>reviewPrice(i,'Rejected')}>Reject</button></div>}
-      </div></li>)}</ul>}
-    </section>
-    <section className="space-y-3"><div className="flex items-center justify-between"><h2 className="text-lg font-bold">Shop registrations</h2><span className="chip">{c.shops.filter((s:Shop&{verified?:boolean})=>!s.verified).length} unverified</span></div>
-      {!c.shops.length?<Empty t="No shops to review" d="Add a real shop from the Shops page first."/>:
-      <ul className="space-y-3">{c.shops.map((s:Shop&{verified?:boolean})=><li key={s.id} className="card flex flex-wrap items-center justify-between gap-3"><div><p className="font-semibold">{s.name}</p><p className="text-sm text-mute">{s.area} · {s.lat}, {s.lng}</p><p className="text-sm">{s.verified?'Verified':'Not verified'}</p></div><button className={s.verified?'btn2':'btn'} onClick={()=>updateShop(s.id,!s.verified)}>{s.verified?'Undo verification':'Mark verified'}</button></li>)}</ul>}
-    </section>
-  </div>
+  return <div className="mx-auto max-w-2xl space-y-4"><h1 className="text-2xl font-extrabold">Secure verification</h1><div className="rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-950"><b>Administrator approval is locked until secure admin roles are configured.</b> This is intentional: a normal user must not be able to approve their own shop or price report. New submissions are stored in Supabase as pending and are shared according to the database access policies. Do not trust or label pending entries as verified.</div><p className="text-sm text-mute">Next, configure a server-side administrator role and restricted review policies in Supabase. Until that is done, do not approve records by changing browser state.</p><button className="btn2" onClick={c.refreshSharedData}>Refresh shared submissions</button></div>
 }
 
 function Submit(c:C){
