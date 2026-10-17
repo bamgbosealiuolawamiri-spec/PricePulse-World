@@ -7,19 +7,20 @@ function token(account?:SessionAccount|null) {
   if (account?.access_token) return account.access_token
   try {
     const session = JSON.parse(localStorage.getItem('pp:authSession') || '{}')
-    return session.access_token || KEY
-  } catch { return KEY }
+    return session.access_token || ''
+  } catch { return '' }
 }
 
 export async function dbRequest<T=unknown>(table:string, options:{
   method?:string; account?:SessionAccount|null; query?:string; body?:unknown; prefer?:string
 } = {}):Promise<T> {
   if (!URL || !KEY) throw new Error('Database is not configured. Check the VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables.')
+  const accessToken = token(options.account)
   const response = await fetch(`${URL}/rest/v1/${table}${options.query ? `?${options.query}` : ''}`, {
     method: options.method || 'GET',
     headers: {
       apikey: KEY,
-      Authorization: `Bearer ${token(options.account)}`,
+      ...(accessToken ? {Authorization: `Bearer ${accessToken}`} : {}),
       'Content-Type':'application/json',
       ...(options.prefer ? {Prefer:options.prefer} : {})
     },
