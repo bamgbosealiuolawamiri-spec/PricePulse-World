@@ -99,25 +99,60 @@ function Card({p,c}:{p:Product;c:C}){
 }
 
 function Home({q,setQ,...c}:C){
-  const [load,setLoad]=useState(true)
   const approvedPrices=c.subs.filter((s:any)=>s.status==='Approved')
   const verifiedShops=c.shops.filter((s:Shop&{verified?:boolean})=>s.verified)
-  useEffect(()=>{const t=setTimeout(()=>setLoad(false),500);return()=>clearTimeout(t)},[])
-  const nearby=useMemo(()=>[...PRODUCTS].sort((a,b)=>c.dist(best(a).shop)-c.dist(best(b).shop)).slice(0,4),[c.loc])
-  const moves=[...PRODUCTS].sort((a,b)=>Math.abs(change(b).pct)-Math.abs(change(a).pct)).slice(0,4)
-  return <div className="space-y-8">
-    <section className="rounded-3xl bg-gradient-to-br from-deep to-brand p-6 text-white md:p-10">
-      <h1 className="text-3xl font-extrabold md:text-4xl">Know the price.<br/>Compare the world.<br/>Save smarter.</h1>
-      <p className="mt-2 text-sm text-green-50">Starting in Lagos, Nigeria. Real listings will appear as shops and shoppers submit information.</p>
-      <form className="mt-5 flex gap-2" role="search" onSubmit={e=>{e.preventDefault();go('/search?q='+encodeURIComponent(q))}}>
-        <input aria-label="Search products" className="inp !text-ink" placeholder="Search rice, phone, TV, fan…" value={q} onChange={e=>setQ(e.target.value)}/>
-        <button className="btn !bg-ink">Search</button></form></section>
-    <section><h2 className="mb-3 text-lg font-bold">Categories</h2><div className="flex flex-wrap gap-2">{CATS.map(k=><a key={k} className="btn2" href={'#/search?q=&cat='+k}>{k}</a>)}</div></section>
-    {approvedPrices.length>0&&<section><div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-bold">Approved community prices</h2><span className="chip">{approvedPrices.length} approved</span></div><div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">{approvedPrices.map((s:any,i:number)=><article className="card" key={s.saved||i}><div className="flex items-start justify-between gap-2"><h3 className="font-semibold">{s.product}</h3><span className="chip">Approved</span></div><p className="mt-2 text-xl font-extrabold text-deep">{money(Number(s.price))}</p><p className="text-sm text-mute">{s.shop} · {s.area}</p><p className="mt-1 text-xs text-mute">Price seen: {s.date}</p></article>)}</div></section>}
-    {verifiedShops.length>0&&<section><div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-bold">Verified nearby shops</h2><span className="chip">{verifiedShops.length} verified</span></div><div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">{verifiedShops.map((s:Shop&{verified?:boolean})=><article className="card" key={s.id}><h3 className="font-semibold">{s.name}</h3><p className="text-sm text-mute">{s.area} · {c.dist(s).toFixed(1)} km away</p><span className="chip mt-2 inline-block">Verified shop</span></article>)}</div></section>}
-    {load?<div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">{[1,2,3,4].map(i=><div key={i} className="sk"/>)}</div>:<>
-    <section><h2 className="mb-3 text-lg font-bold">Nearby prices</h2><div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">{nearby.map(p=><Card key={p.id} p={p} c={c}/>)}</div></section>
-    <section><h2 className="mb-3 text-lg font-bold">Recent price changes</h2><div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">{moves.map(p=><Card key={p.id} p={p} c={c}/>)}</div></section></>}
+  const pendingPrices=c.subs.filter((s:any)=>s.status!=='Approved').length
+  return <div className="space-y-10">
+    <section className="relative isolate overflow-hidden rounded-[2rem] bg-[#101B35] px-6 py-10 text-white shadow-xl md:px-10 md:py-14">
+      <div aria-hidden="true" className="absolute -right-12 -top-16 -z-10 h-72 w-72 rounded-full bg-blue-500/30 blur-3xl"/>
+      <div aria-hidden="true" className="absolute -bottom-24 left-1/3 -z-10 h-64 w-64 rounded-full bg-cyan-400/20 blur-3xl"/>
+      <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold tracking-wide text-blue-100"><span className="h-2 w-2 rounded-full bg-cyan-300"/> LOCAL PRICES. SMARTER CHOICES.</div>
+      <div className="grid items-center gap-8 md:grid-cols-[1.2fr_.8fr]">
+        <div>
+          <h1 className="max-w-2xl text-4xl font-black leading-[1.08] tracking-tight md:text-6xl">Know the price.<br/><span className="text-cyan-300">Keep more money.</span></h1>
+          <p className="mt-5 max-w-xl text-base leading-7 text-slate-200 md:text-lg">Compare community-reported prices, discover nearby shops, and make a more confident choice before you buy.</p>
+          <form className="mt-7 flex flex-col gap-2 rounded-2xl bg-white p-2 shadow-lg sm:flex-row" role="search" onSubmit={e=>{e.preventDefault();go('/search?q='+encodeURIComponent(q))}}>
+            <span className="hidden items-center pl-3 text-xl text-slate-400 sm:flex" aria-hidden="true">⌕</span>
+            <input aria-label="Search products" className="min-w-0 flex-1 border-0 px-3 py-3 text-sm text-[#172033] outline-none ring-0 placeholder:text-slate-400 focus:ring-0" placeholder="What do you want to price-check?" value={q} onChange={e=>setQ(e.target.value)}/>
+            <button className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-blue-700">Find prices <span aria-hidden="true">→</span></button>
+          </form>
+          <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs text-slate-300"><span>✓ Community submitted</span><span>✓ Verification first</span><span>✓ Starting in Lagos</span></div>
+        </div>
+        <div className="mx-auto w-full max-w-sm">
+          <div className="rounded-3xl border border-white/15 bg-white/[0.08] p-5 shadow-2xl backdrop-blur">
+            <div className="flex items-center justify-between"><span className="text-sm font-semibold text-slate-100">PricePulse snapshot</span><span className="rounded-full bg-cyan-300/15 px-2.5 py-1 text-[11px] font-bold text-cyan-200">LIVE COMMUNITY</span></div>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <div className="rounded-2xl bg-white/10 p-4"><p className="text-3xl font-black">{approvedPrices.length}</p><p className="mt-1 text-xs text-slate-300">Approved prices</p></div>
+              <div className="rounded-2xl bg-white/10 p-4"><p className="text-3xl font-black">{verifiedShops.length}</p><p className="mt-1 text-xs text-slate-300">Verified shops</p></div>
+            </div>
+            <div className="mt-4 rounded-2xl bg-[#0B1225]/70 p-4"><div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-xl bg-cyan-300 text-xl text-[#101B35]">⌖</div><div><p className="text-sm font-bold">Your area</p><p className="text-xs text-slate-300">{c.loc.name}</p></div><span className="ml-auto text-cyan-300">●</span></div><p className="mt-3 text-xs leading-5 text-slate-300">Choose your area or use your location to explore nearby verified listings.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.18em] text-blue-600">Explore</p><h2 className="mt-1 text-2xl font-extrabold tracking-tight text-[#172033]">What are you shopping for?</h2><p className="mt-1 text-sm text-slate-500">Start with a category or search for a specific item.</p></div><a href="#/search" className="text-sm font-bold text-blue-700 hover:underline">Browse all →</a></div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+        {CATS.map((k,i)=><a key={k} className="group flex min-h-24 items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md" href={'#/search?q=&cat='+encodeURIComponent(k)}><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-blue-50 text-xl text-blue-700 transition group-hover:bg-blue-100">{['🛒','📱','🏠','🔌','🥫','🧴','👕','🧰'][i%8]}</span><span className="text-sm font-bold text-slate-800">{k}</span><span className="ml-auto text-slate-400 transition group-hover:translate-x-1 group-hover:text-blue-600">→</span></a>)}
+      </div>
+    </section>
+
+    <section className="grid gap-4 md:grid-cols-2">
+      <a href="#/submit" className="group rounded-3xl border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-6 transition hover:border-blue-300 hover:shadow-md"><span className="grid h-12 w-12 place-items-center rounded-2xl bg-blue-600 text-2xl text-white">＋</span><h2 className="mt-4 text-xl font-extrabold text-slate-900">Share a price</h2><p className="mt-2 max-w-sm text-sm leading-6 text-slate-600">Seen a price in a shop? Submit it to help other shoppers make informed decisions. Submissions are marked pending until reviewed.</p><span className="mt-4 inline-flex font-bold text-blue-700">Submit a price <span className="ml-2 transition group-hover:translate-x-1">→</span></span></a>
+      <a href="#/shops" className="group rounded-3xl border border-slate-200 bg-white p-6 transition hover:border-blue-300 hover:shadow-md"><span className="grid h-12 w-12 place-items-center rounded-2xl bg-slate-900 text-2xl text-white">⌖</span><h2 className="mt-4 text-xl font-extrabold text-slate-900">Find local shops</h2><p className="mt-2 max-w-sm text-sm leading-6 text-slate-600">Discover shops around your selected area. Verified listings are clearly labelled so you can see what has been checked.</p><span className="mt-4 inline-flex font-bold text-blue-700">Explore shops <span className="ml-2 transition group-hover:translate-x-1">→</span></span></a>
+    </section>
+
+    <section>
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.18em] text-blue-600">Community listings</p><h2 className="mt-1 text-2xl font-extrabold tracking-tight text-[#172033]">Prices checked by people</h2><p className="mt-1 text-sm text-slate-500">Only approved submissions appear here.</p></div><span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700">{approvedPrices.length} approved</span></div>
+      {approvedPrices.length>0?<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{approvedPrices.map((s:any,i:number)=><article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" key={s.saved||i}><div className="flex items-start justify-between gap-3"><h3 className="font-bold text-slate-900">{s.product}</h3><span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">✓ Approved</span></div><p className="mt-3 text-2xl font-black tracking-tight text-blue-700">{money(Number(s.price))}</p><p className="mt-1 text-sm text-slate-600">{s.shop} · {s.area}</p><p className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-400">Price reported: {s.date||'Date not provided'}</p></article>)}</div>:<div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center"><span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-white text-2xl shadow-sm">🧾</span><h3 className="mt-4 text-lg font-extrabold text-slate-900">No approved prices yet</h3><p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">We won't invent prices or shops. Be one of the first to submit a price and help build a useful local price guide.</p><a href="#/submit" className="mt-5 inline-flex rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white hover:bg-blue-700">Submit the first price →</a></div>}
+    </section>
+
+    <section>
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.18em] text-blue-600">Around you</p><h2 className="mt-1 text-2xl font-extrabold tracking-tight text-[#172033]">Verified nearby shops</h2><p className="mt-1 text-sm text-slate-500">Listings shown here have been marked verified.</p></div><a href="#/shops" className="text-sm font-bold text-blue-700 hover:underline">View shops →</a></div>
+      {verifiedShops.length>0?<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{verifiedShops.map((s:Shop&{verified?:boolean})=><article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" key={s.id}><div className="flex items-start gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-blue-50 text-xl">🏪</span><div className="min-w-0"><h3 className="font-bold text-slate-900">{s.name}</h3><p className="mt-1 text-sm text-slate-500">{s.area} · {c.dist(s).toFixed(1)} km away</p></div><span className="ml-auto rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-700">Verified</span></div></article>)}</div>:<div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 px-6 py-9 text-center"><span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-white text-2xl shadow-sm">🏪</span><h3 className="mt-3 font-extrabold text-slate-900">No verified shops in this view yet</h3><p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">We only show shops added by users and marked verified. Help grow the directory by adding a real shop.</p><a href="#/shops" className="mt-4 inline-flex rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-800 hover:border-blue-300">Add a shop →</a></div>}
+    </section>
+    {pendingPrices>0&&<p className="rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-900">{pendingPrices} price submission{pendingPrices===1?' is':'s are'} still awaiting review and won't appear in the approved listings yet.</p>}
   </div>
 }
 
