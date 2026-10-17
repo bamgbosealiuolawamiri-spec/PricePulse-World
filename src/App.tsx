@@ -50,7 +50,7 @@ export default function App(){
   const dist=(s:{lat:number;lng:number})=>km(loc,s)
   const ctx={loc,saved,toggleSave,alerts,setAlerts,basket,setBasket,subs,setSubs,shops,setShops,dist}
 
-  const links=[['','Home'],['search','Search'],['shops','Shops'],['basket','Basket'],['saved','Saved'],['submit','Submit price']]
+  const links=[['','Home'],['search','Search'],['shops','Shops'],['basket','Basket'],['saved','Saved'],['submit','Submit price'],['admin','Admin']
   return <div className="min-h-screen flex flex-col">
     <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-white focus:p-2">Skip to content</a>
     <header className="sticky top-0 z-40 border-b bg-white/95 backdrop-blur">
@@ -74,7 +74,8 @@ export default function App(){
       {route==='basket'&&<Basket {...ctx}/>}
       {route==='saved'&&<Saved {...ctx}/>}
       {route==='submit'&&<Submit {...ctx}/>}
-      {!['','search','p','shops','basket','saved','submit'].includes(route)&&<Empty t="Page not found" d="That page doesn't exist."/>}
+      {route==='admin'&&<Admin {...ctx}/>}
+      {!['','search','p','shops','basket','saved','submit','admin'].includes(route)&&<Empty t="Page not found" d="That page doesn't exist."/>}
     </main>
     <footer className="border-t bg-soft px-4 py-6 text-center text-xs text-mute">PricePulse World · Know the price. Compare the world. Save smarter.<br/>Only submitted listings are shown. Shop and price submissions require verification before being treated as trusted. Maps © OpenStreetMap contributors.</footer>
   </div>
@@ -202,6 +203,32 @@ function Saved(c:C){
   return <div className="space-y-6"><h1 className="text-2xl font-extrabold">Saved & alerts</h1>
     {items.length?<div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">{items.map(p=><Card key={p.id} p={p} c={c}/>)}</div>:<Empty t="Nothing saved yet" d="Tap ☆ on any product to keep it here."/>}
     {alerted.length>0&&<section><h2 className="mb-2 font-bold">Price alerts (local only)</h2><ul className="space-y-2">{alerted.map(p=>{const b=best(p).price,hit=b<=c.alerts[p.id];return <li key={p.id} className="card flex justify-between"><a href={'#/p/'+p.id}>{p.name}</a><span className={hit?'font-bold text-brand':'text-mute'}>{hit?`Target reached: ${money(b)}`:`Target ${money(c.alerts[p.id])} · now ${money(b)}`}</span></li>})}</ul></section>}</div>
+}
+
+
+function Admin(c:C){
+  const pending=c.subs.filter((s:any)=>!['Approved','Rejected'].includes(s.status||'Pending verification'))
+  const reviewPrice=(index:number,status:string)=>{
+    const target=c.subs[index]
+    c.setSubs(c.subs.map((s:any,i:number)=>i===index?{...s,status,reviewedAt:new Date().toISOString()}:s))
+  }
+  const updateShop=(id:string,verified:boolean)=>{
+    c.setShops(c.shops.map((s:Shop&{verified?:boolean})=>s.id===id?{...s,verified}:s))
+  }
+  return <div className="space-y-5">
+    <div><h1 className="text-2xl font-extrabold">Verification dashboard</h1><p className="mt-1 text-sm text-mute">Review submitted shop details and price reports before treating them as trusted.</p></div>
+    <div role="note" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900"><b>Prototype limitation:</b> this dashboard only reviews data saved in this browser. It has no administrator login and cannot securely approve shared/public reports. Do not use it as a production admin console until authentication and a shared database are connected.</div>
+    <section className="space-y-3"><div className="flex items-center justify-between"><h2 className="text-lg font-bold">Price reports</h2><span className="chip">{pending.length} pending</span></div>
+      {!c.subs.length?<Empty t="No price reports yet" d="Reports submitted from this browser will appear here for review."/>:
+      <ul className="space-y-3">{c.subs.map((s:any,i:number)=><li key={s.saved||i} className="card"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-semibold">{s.product}</p><p className="text-sm">{money(Number(s.price))} · {s.shop}, {s.area}</p><p className="text-xs text-mute">Seen {s.date} · Submitted {s.saved?new Date(s.saved).toLocaleString():'date unavailable'}</p><p className="mt-1 text-sm">Status: <b className={s.status==='Approved'?'text-brand':s.status==='Rejected'?'text-red-700':'text-amber-800'}>{s.status||'Pending verification'}</b></p></div>
+      {(s.status||'Pending verification')==='Pending verification'&&<div className="flex gap-2"><button className="btn" onClick={()=>reviewPrice(i,'Approved')}>Approve</button><button className="btn2" onClick={()=>reviewPrice(i,'Rejected')}>Reject</button></div>}
+      </div></li>)}</ul>}
+    </section>
+    <section className="space-y-3"><div className="flex items-center justify-between"><h2 className="text-lg font-bold">Shop registrations</h2><span className="chip">{c.shops.filter((s:Shop&{verified?:boolean})=>!s.verified).length} unverified</span></div>
+      {!c.shops.length?<Empty t="No shops to review" d="Add a real shop from the Shops page first."/>:
+      <ul className="space-y-3">{c.shops.map((s:Shop&{verified?:boolean})=><li key={s.id} className="card flex flex-wrap items-center justify-between gap-3"><div><p className="font-semibold">{s.name}</p><p className="text-sm text-mute">{s.area} · {s.lat}, {s.lng}</p><p className="text-sm">{s.verified?'Verified':'Not verified'}</p></div><button className={s.verified?'btn2':'btn'} onClick={()=>updateShop(s.id,!s.verified)}>{s.verified?'Undo verification':'Mark verified'}</button></li>)}</ul>}
+    </section>
+  </div>
 }
 
 function Submit(c:C){
