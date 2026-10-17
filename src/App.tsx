@@ -45,6 +45,7 @@ export default function App(){
   const [saved,setSaved]=useLS<string[]>('saved',[])
   const [alerts,setAlerts]=useLS<Record<string,number>>('alerts',{})
   const [basket,setBasket]=useLS<Record<string,number>>('basket',{})
+  const [account,setAccount]=useLS<{id:string;email:string;name:string;access_token?:string;refresh_token?:string}|null>('account',null)
   const [subs,setSubs]=useState<any[]>([])
   const [shops,setShops]=useState<any[]>([])
   const [country,setCountry]=useLS('country','Nigeria')
@@ -53,7 +54,6 @@ export default function App(){
   const [dataError,setDataError]=useState('')
   const refreshSharedData=async()=>{try{const data=await fetchSharedData(account);setShops(data.shops);setSubs(data.subs);setDataError('')}catch(e){setDataError(e instanceof Error?e.message:'Could not load shared data.')}}
   useEffect(()=>{let active=true;fetchSharedData(account).then(data=>{if(active){setShops(data.shops);setSubs(data.subs);setDataError('')}}).catch(e=>{if(active)setDataError(e instanceof Error?e.message:'Could not load shared data.')});return()=>{active=false}},[account?.id,account?.access_token])
-  const [account,setAccount]=useLS<{id:string;email:string;name:string;access_token?:string;refresh_token?:string}|null>('account',null)
   const [geoMsg,setGeoMsg]=useState('')
   const [q,setQ]=useState('')
   const [menu,setMenu]=useState(false)
