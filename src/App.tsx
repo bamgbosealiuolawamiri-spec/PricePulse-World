@@ -67,7 +67,7 @@ export default function App(){
         <span className="text-mute">Currency: NGN</span></div>
       {geoMsg&&<p role="status" className="mb-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{geoMsg}</p>}
       {route===''&&<Home q={q} setQ={setQ} {...ctx}/>}
-      {route==='search'&&<Search {...ctx} q={decodeURIComponent((hash.split('?q=')[1]||''))} cat={decodeURIComponent((hash.split('&cat=')[1]||''))}/>}
+      {route==='search'&&<Search {...ctx} q={new URLSearchParams(hash.includes('?')?hash.slice(hash.indexOf('?')+1):'').get('q')||''} cat={new URLSearchParams(hash.includes('?')?hash.slice(hash.indexOf('?')+1):'').get('cat')||''}/>
       {route==='p'&&<Detail id={arg} {...ctx}/>}
       {route==='shops'&&<Shops {...ctx}/>}
       {route==='basket'&&<Basket {...ctx}/>}
@@ -117,8 +117,8 @@ function Search({q,cat,...c}:C){
   const [text,setText]=useState(q);useEffect(()=>setText(q),[q])
   let res=PRODUCTS.filter(p=>(!q||p.name.toLowerCase().includes(q.toLowerCase())||p.cat.toLowerCase().includes(q.toLowerCase()))&&(!cat||p.cat===cat))
   res=[...res].sort((a,b)=>sort==='price'?best(a).price-best(b).price:c.dist(best(a).shop)-c.dist(best(b).shop))
-  return <div><form className="mb-4 flex gap-2" role="search" onSubmit={e=>{e.preventDefault();go('/search?q='+encodeURIComponent(text))}}><input aria-label="Search" className="inp" value={text} onChange={e=>setText(e.target.value)} placeholder="Search products"/><button className="btn">Search</button></form>
-    <div className="mb-4 flex flex-wrap items-center gap-2"><a className={`chip ${!cat?'!bg-brand !text-white':''}`} href={'#/search?q='+q}>All</a>{CATS.map(k=><a key={k} className={`chip ${cat===k?'!bg-brand !text-white':''}`} href={`#/search?q=${q}&cat=${k}`}>{k}</a>)}
+  return <div><form className="mb-4 flex gap-2" role="search" onSubmit={e=>{e.preventDefault();go('/search?q='+encodeURIComponent(text)+(cat?'&cat='+encodeURIComponent(cat):''))}}><input aria-label="Search" className="inp" value={text} onChange={e=>setText(e.target.value)} placeholder="Search products"/><button className="btn">Search</button></form>
+    <div className="mb-4 flex flex-wrap items-center gap-2"><a className={`chip ${!cat?'!bg-brand !text-white':''}`} href={'#/search?q='+encodeURIComponent(q)}>All</a>{CATS.map(k=><a key={k} className={`chip ${cat===k?'!bg-brand !text-white':''}`} href={`#/search?q=${encodeURIComponent(q)}&cat=${encodeURIComponent(k)}`}>{k}</a>)}
       <select aria-label="Sort" className="ml-auto rounded-lg border px-2 py-1 text-sm" value={sort} onChange={e=>setSort(e.target.value)}><option value="price">Lowest price</option><option value="dist">Nearest</option></select></div>
     {err?<div role="alert" className="card text-center"><p>Something went wrong loading results.</p><button className="btn mt-2" onClick={()=>{setErr(false);setTick(tick+1)}}>Retry</button></div>
     :load?<div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">{[1,2,3].map(i=><div key={i} className="sk"/>)}</div>
