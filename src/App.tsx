@@ -20,8 +20,8 @@ function MapView({center,loc,shops}:{center:Loc;loc:Loc;shops:(Shop&{verified?:b
     if(!el.current)return
     const m=L.map(el.current).setView([center.lat,center.lng],12)
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors',maxZoom:19}).addTo(m)
-    L.circleMarker([loc.lat,loc.lng],{radius:9,color:'#087443',fillColor:'#0BA95B',fillOpacity:1}).addTo(m).bindPopup('Your selected location')
-    shops.forEach(s=>L.circleMarker([s.lat,s.lng],{radius:7,color:'#17211B',fillColor:'#fff',fillOpacity:1}).addTo(m).bindPopup(`${s.name}<br/>${s.area}<br/>${km(loc,s).toFixed(1)} km · ${s.verified?'Verified':'Not verified'}`))
+    L.circleMarker([loc.lat,loc.lng],{radius:9,color:'#1D4ED8',fillColor:'#2563EB',fillOpacity:1}).addTo(m).bindPopup('Your selected location')
+    shops.forEach(s=>L.circleMarker([s.lat,s.lng],{radius:7,color:'#172033',fillColor:'#fff',fillOpacity:1}).addTo(m).bindPopup(`${s.name}<br/>${s.area}<br/>${km(loc,s).toFixed(1)} km · ${s.verified?'Verified':'Not verified'}`))
     return()=>{m.remove()}
   },[center,loc,shops])
   return <div ref={el} className="h-72 w-full rounded-2xl border" role="region" aria-label="Map of added shops"/>
@@ -150,7 +150,7 @@ function Detail({id,...c}:C){
     <section><h2 className="mb-2 font-bold">Compare sellers (same product)</h2><div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="text-mute"><tr><th className="p-2">Shop</th><th>Price</th><th>Distance</th><th>Updated</th><th/></tr></thead><tbody>
       {offers.map((o,i)=><tr key={o.shop.id} className="border-t"><td className="p-2 font-medium">{o.shop.name}, {o.shop.area}{i===0&&<span className="chip ml-2">Lowest</span>}</td><td className="font-bold">{money(o.price)}</td><td>{c.dist(o.shop).toFixed(1)} km</td><td className="text-mute">{o.updated}</td><td><a className="text-deep underline" target="_blank" rel="noreferrer" href={`https://www.openstreetmap.org/directions?from=${c.loc.lat},${c.loc.lng}&to=${o.shop.lat},${o.shop.lng}`}>Directions</a></td></tr>)}</tbody></table></div>
       <p className="mt-1 text-xs text-mute">Submitted prices are not a guarantee of current availability.</p></section>
-    <section className="card"><h2 className="font-bold">Price history</h2><svg viewBox="0 0 300 80" className="mt-2 w-full" role="img" aria-label={`Sample price history from ${money(h[0].price)} to ${money(h[h.length-1].price)}`}><polyline fill="none" stroke="#0BA95B" strokeWidth="3" points={pts}/></svg>
+    <section className="card"><h2 className="font-bold">Price history</h2><svg viewBox="0 0 300 80" className="mt-2 w-full" role="img" aria-label={`Sample price history from ${money(h[0].price)} to ${money(h[h.length-1].price)}`}><polyline fill="none" stroke="#2563EB" strokeWidth="3" points={pts}/></svg>
       <p className="text-xs text-mute">Low {money(mn)} · High {money(mx)} · History will appear after verified price reports are collected</p></section>
     <section className="card"><h2 className="font-bold">Price alert</h2><p className="text-sm text-mute">Stored on this device only. No notifications are sent in this demo; you'll see a flag on the Saved page.</p>
       <div className="mt-2 flex gap-2"><input className="inp" inputMode="numeric" aria-label="Target price in NGN" placeholder="Target price (₦)" value={target} onChange={e=>setTarget(e.target.value)}/><button className="btn" onClick={()=>{const n=Number(target);if(n>0)c.setAlerts({...c.alerts,[p.id]:n})}}>Set</button></div>
@@ -188,7 +188,7 @@ function Shops(c:C){
       <p className="text-xs text-mute">Coordinates are optional. Leave both blank to use your currently selected location, or enter the shop's actual coordinates for a more accurate map pin.</p>
       <div className="grid grid-cols-2 gap-3"><label className="block text-sm font-medium">Latitude<input name="lat" type="number" step="any" className="inp mt-1" placeholder="Optional, e.g. 6.5244"/></label><label className="block text-sm font-medium">Longitude<input name="lng" type="number" step="any" className="inp mt-1" placeholder="Optional, e.g. 3.3792"/></label></div>
       {formError&&<p role="alert" className="rounded-lg bg-red-50 p-2 text-sm text-red-700">{formError}</p>}
-      {notice&&<p role="status" className="rounded-lg bg-green-50 p-2 text-sm text-green-800">{notice}</p>}
+      {notice&&<p role="status" className="rounded-lg bg-blue-50 p-2 text-sm text-blue-800">{notice}</p>}
       <button type="submit" className="btn w-full">Save shop</button>
     </form>
     {list.length?<ul className="grid gap-3 sm:grid-cols-2">{list.map((s:Shop)=><li key={s.id} className="card"><p className="font-semibold">{s.name}</p><p className="text-sm text-mute">{s.area} · {c.dist(s).toFixed(1)} km away · {(s as Shop&{verified?:boolean}).verified?'Verified':'Not verified'}</p><div className="mt-2 flex gap-2"><a className="btn2" target="_blank" rel="noreferrer" href={`https://www.openstreetmap.org/directions?from=${c.loc.lat},${c.loc.lng}&to=${s.lat},${s.lng}`}>Get directions</a><button type="button" className="btn2" onClick={()=>c.setShops(c.shops.filter((x:Shop)=>x.id!==s.id))}>Remove</button></div></li>)}</ul>:<Empty t="No shops added yet" d="There are no built-in sample shops. Add a real shop using the form above."/ >}</div>
