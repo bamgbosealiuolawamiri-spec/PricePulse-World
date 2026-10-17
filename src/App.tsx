@@ -67,7 +67,7 @@ export default function App(){
         <span className="text-mute">Currency: NGN</span></div>
       {geoMsg&&<p role="status" className="mb-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{geoMsg}</p>}
       {route===''&&<Home q={q} setQ={setQ} {...ctx}/>}
-      {route==='search'&&<Search {...ctx} q={new URLSearchParams(hash.includes('?')?hash.slice(hash.indexOf('?')+1):'').get('q')||''} cat={new URLSearchParams(hash.includes('?')?hash.slice(hash.indexOf('?')+1):'').get('cat')||''}/>
+      {route==='search'&&<Search {...ctx} q={new URLSearchParams(hash.includes('?')?hash.slice(hash.indexOf('?')+1):'').get('q')||''} cat={new URLSearchParams(hash.includes('?')?hash.slice(hash.indexOf('?')+1):'').get('cat')||''}/>}
       {route==='p'&&<Detail id={arg} {...ctx}/>}
       {route==='shops'&&<Shops {...ctx}/>}
       {route==='basket'&&<Basket {...ctx}/>}
