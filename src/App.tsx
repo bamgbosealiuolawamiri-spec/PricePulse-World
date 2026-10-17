@@ -207,40 +207,41 @@ function Detail({id,...c}:C){
 }
 
 function Shops(c:C){
-  const list=[...c.shops].sort((a:Shop,b:Shop)=>c.dist(a)-c.dist(b))
-  const [formError,setFormError]=useState('')
-  const [notice,setNotice]=useState('')
-  const saveShop=(e:FormEvent<HTMLFormElement>)=>{
-    e.preventDefault()
-    const form=e.currentTarget
-    const f=new FormData(form)
-    const name=String(f.get('name')||'').trim()
-    const area=String(f.get('area')||'').trim()
-    const rawLat=String(f.get('lat')||'').trim()
-    const rawLng=String(f.get('lng')||'').trim()
-    const lat=rawLat===''?c.loc.lat:Number(rawLat)
-    const lng=rawLng===''?c.loc.lng:Number(rawLng)
-    if(!name||!area){setFormError('Enter the shop name and address/area.');return}
-    if((rawLat==='')!==(rawLng==='')){setFormError('Enter both latitude and longitude, or leave both blank.');return}
-    if(!Number.isFinite(lat)||!Number.isFinite(lng)||lat < -90||lat>90||lng < -180||lng>180){setFormError('Enter valid coordinates, or leave both blank to use your selected location.');return}
-    const shop:Shop={id:typeof crypto!=='undefined'&&'randomUUID' in crypto?crypto.randomUUID():String(Date.now()),name,area,lat,lng}
-    c.setShops([...c.shops,shop])
-    form.reset()
-    setFormError('')
-    setNotice('Shop saved on this device. It is not yet shared or verified.')
+  const list=[...c.shops].sort((a:any,b:any)=>c.dist(a)-c.dist(b))
+  const [formError,setFormError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false)
+  const saveShop=async(e:FormEvent<HTMLFormElement>)=>{
+    e.preventDefault();setFormError('');setNotice('')
+    if(!c.account?.id){setFormError('Please log in before registering a shop.');return}
+    const form=e.currentTarget,f=new FormData(form)
+    const name=String(f.get('name')||'').trim(),address=String(f.get('address')||'').trim()
+    const city=String(f.get('city')||'').trim(),country=String(f.get('country')||'').trim()
+    const rawLat=String(f.get('lat')||'').trim(),rawLng=String(f.get('lng')||'').trim()
+    if(!name||!address||!city||!country){setFormError('Enter the real shop name, address, city and country.');return}
+    if(rawLat===''||rawLng===''){setFormError('Enter the shop’s actual latitude and longitude. Use your device location only if you are physically at the shop.');return}
+    const lat=Number(rawLat),lng=Number(rawLng)
+    if(!Number.isFinite(lat)||!Number.isFinite(lng)||lat < -90||lat>90||lng < -180||lng>180){setFormError('Enter valid latitude and longitude coordinates.');return}
+    setBusy(true)
+    try{
+      await dbRequest('shops',{method:'POST',account:c.account,query:'select=*',prefer:'return=representation',body:{owner_id:c.account.id,name,address,city,country,latitude:lat,longitude:lng,verification_status:'pending'}})
+      await c.refreshSharedData();form.reset();setNotice('Shop submitted to the shared database. It is pending verification and is not yet shown as verified.')
+    }catch(err){setFormError(err instanceof Error?err.message:'Could not save the shop. Please try again.')}
+    finally{setBusy(false)}
   }
-  return <div className="space-y-4"><h1 className="text-2xl font-extrabold">Nearby shops</h1><p className="text-sm text-mute">Add real shop details below. Shops saved here are stored only in this browser and are not shared or verified.</p>
+  return <div className="space-y-4"><h1 className="text-2xl font-extrabold">Shops around the world</h1><p className="text-sm text-mute">Register a real shop in any country. New registrations are shared through Supabase and remain pending until verified.</p>
     <MapView center={c.loc} loc={c.loc} shops={list}/>
-    <form className="card space-y-3" onSubmit={saveShop}><h2 className="font-bold">Add a shop</h2>
+    <form className="card space-y-3" onSubmit={saveShop}><h2 className="font-bold">Register a real shop</h2>
+      {!c.account&&<p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Log in first to submit a shop.</p>}
       <label className="block text-sm font-medium">Shop name<input required name="name" className="inp mt-1" placeholder="Real shop or business name"/></label>
-      <label className="block text-sm font-medium">Address / area<input required name="area" className="inp mt-1" placeholder="Street, neighbourhood, city"/></label>
-      <p className="text-xs text-mute">Coordinates are optional. Leave both blank to use your currently selected location, or enter the shop's actual coordinates for a more accurate map pin.</p>
-      <div className="grid grid-cols-2 gap-3"><label className="block text-sm font-medium">Latitude<input name="lat" type="number" step="any" className="inp mt-1" placeholder="Optional, e.g. 6.5244"/></label><label className="block text-sm font-medium">Longitude<input name="lng" type="number" step="any" className="inp mt-1" placeholder="Optional, e.g. 3.3792"/></label></div>
+      <label className="block text-sm font-medium">Street address<input required name="address" className="inp mt-1" placeholder="Street address or shop location"/></label>
+      <div className="grid grid-cols-2 gap-3"><label className="block text-sm font-medium">City<input required name="city" defaultValue={c.city} className="inp mt-1" placeholder="City"/></label><label className="block text-sm font-medium">Country<input required name="country" defaultValue={c.country} className="inp mt-1" placeholder="Country"/></label></div>
+      <p className="text-xs text-mute">Coordinates must be for the actual shop location. We require them to avoid pinning international shops in the wrong country.</p>
+      <div className="grid grid-cols-2 gap-3"><label className="block text-sm font-medium">Latitude<input required name="lat" type="number" step="any" className="inp mt-1" placeholder="e.g. 6.5244"/></label><label className="block text-sm font-medium">Longitude<input required name="lng" type="number" step="any" className="inp mt-1" placeholder="e.g. 3.3792"/></label></div>
       {formError&&<p role="alert" className="rounded-lg bg-red-50 p-2 text-sm text-red-700">{formError}</p>}
       {notice&&<p role="status" className="rounded-lg bg-orange-50 p-2 text-sm text-orange-800">{notice}</p>}
-      <button type="submit" className="btn w-full">Save shop</button>
+      <button disabled={busy||!c.account} type="submit" className="btn w-full">{busy?'Saving…':'Submit shop for verification'}</button>
     </form>
-    {list.length?<ul className="grid gap-3 sm:grid-cols-2">{list.map((s:Shop)=><li key={s.id} className="card"><p className="font-semibold">{s.name}</p><p className="text-sm text-mute">{s.area} · {c.dist(s).toFixed(1)} km away · {(s as Shop&{verified?:boolean}).verified?'Verified':'Not verified'}</p><div className="mt-2 flex gap-2"><a className="btn2" target="_blank" rel="noreferrer" href={`https://www.openstreetmap.org/directions?from=${c.loc.lat},${c.loc.lng}&to=${s.lat},${s.lng}`}>Get directions</a><button type="button" className="btn2" onClick={()=>c.setShops(c.shops.filter((x:Shop)=>x.id!==s.id))}>Remove</button></div></li>)}</ul>:<Empty t="No shops added yet" d="There are no built-in sample shops. Add a real shop using the form above."/ >}</div>
+    {list.length?<ul className="grid gap-3 sm:grid-cols-2">{list.map((s:any)=><li key={s.id} className="card"><p className="font-semibold">{s.name}</p><p className="text-sm text-mute">{s.area} · {c.dist(s).toFixed(1)} km away · {s.verified?'Verified':'Pending verification'}</p><a className="btn2 mt-2 inline-block" target="_blank" rel="noreferrer" href={`https://www.openstreetmap.org/directions?from=${c.loc.lat},${c.loc.lng}&to=${s.lat},${s.lng}`}>Get directions</a></li>)}</ul>:<Empty t="No verified shops in this view yet" d="There are no built-in sample shops. Real shops will appear here after they are registered and verified."/>}
+  </div>
 }
 function Basket(c:C){
   const items=PRODUCTS.filter(p=>c.basket[p.id])
@@ -267,28 +268,36 @@ function Admin(c:C){
 }
 
 function Submit(c:C){
-  const blank=()=>({product:'',shop:'',area:c.loc.name,price:'',date:new Date().toISOString().slice(0,10),receipt:''})
-  const [f,setF]=useState(blank)
-  const [done,setDone]=useState(false),[err,setErr]=useState('')
-  const set=(k:string,v:string)=>setF({...f,[k]:v})
-  const submit=(e:FormEvent)=>{e.preventDefault();const price=Number(f.price)
-    if(!f.product.trim()||!f.shop.trim()||!f.area.trim()||!Number.isFinite(price)||price<=0){setErr('Enter the product, shop, location and a price greater than zero.');return}
+  const blank=()=>({product:'',shop:'',area:'',price:'',date:new Date().toISOString().slice(0,10),country:c.country||'',currency:c.currency||'USD'})
+  const [f,setF]=useState(blank),[done,setDone]=useState(false),[err,setErr]=useState(''),[busy,setBusy]=useState(false)
+  const set=(k:string,v:string)=>setF((old:any)=>({...old,[k]:v}))
+  const submit=async(e:FormEvent)=>{
+    e.preventDefault();setErr('');setDone(false)
+    if(!c.account?.id){setErr('Please log in before submitting a price.');return}
+    const price=Number(f.price)
+    if(!f.product.trim()||!f.shop.trim()||!f.area.trim()||!f.country.trim()||!f.currency.trim()||!Number.isFinite(price)||price<=0){setErr('Enter the product, shop, location, country, currency and a price greater than zero.');return}
     if(!f.date||f.date>new Date().toISOString().slice(0,10)){setErr('Choose a valid date that is today or earlier.');return}
-    const record={...f,price,saved:new Date().toISOString(),status:'Pending verification'}
-    setErr('');c.setSubs([record,...c.subs]);setDone(true);setF(blank())
+    setBusy(true)
+    try{
+      await dbRequest('price_reports',{method:'POST',account:c.account,query:'select=*',prefer:'return=representation',body:{submitted_by:c.account.id,product_name:f.product.trim(),shop_id:null,shop_name:f.shop.trim(),location:f.area.trim(),country:f.country.trim(),currency_code:f.currency,price,date_seen:f.date,verification_status:'pending'}})
+      await c.refreshSharedData();setDone(true);setF(blank())
+    }catch(e){setErr(e instanceof Error?e.message:'Could not save the price report. Please try again.')}
+    finally{setBusy(false)}
   }
-  return <div className="mx-auto max-w-xl space-y-4"><h1 className="text-2xl font-extrabold">Submit a price</h1>
-    <p className="text-sm text-mute">Help people compare real prices by reporting what you actually saw at a shop. Do not guess or invent prices.</p>
-    <p role="note" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900"><b>Local testing only:</b> submissions are saved in this browser and are not shared with other users yet. They remain unverified. Receipt files are not uploaded; only the file name is kept.</p>
-    {done&&<p role="status" className="rounded-xl bg-soft p-3 text-sm text-deep">Price report saved on this device and marked pending verification. <button className="underline" onClick={()=>setDone(false)}>Dismiss</button></p>}
+  return <div className="mx-auto max-w-xl space-y-4"><h1 className="text-2xl font-extrabold">Submit a real price</h1>
+    <p className="text-sm text-mute">Report the price you actually saw in a shop anywhere in the world. Reports are stored in the shared database and remain pending until reviewed.</p>
+    {!c.account&&<p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Log in first to submit a price report.</p>}
+    {done&&<p role="status" className="rounded-xl bg-soft p-3 text-sm text-deep">Your price report was saved to the shared database and is pending verification.</p>}
     {err&&<p role="alert" className="text-sm text-red-600">{err}</p>}
     <form onSubmit={submit} className="card space-y-3">
-      <label className="block text-sm font-medium">Product name<input required className="inp mt-1" type="text" value={f.product} onChange={e=>set('product',e.target.value)} placeholder="e.g. 1 kg bag of rice"/></label>
-      <label className="block text-sm font-medium">Shop name<input required className="inp mt-1" type="text" value={f.shop} onChange={e=>set('shop',e.target.value)} placeholder="Name of the shop where you checked"/></label>
-      <label className="block text-sm font-medium">Location / area<input required className="inp mt-1" type="text" value={f.area} onChange={e=>set('area',e.target.value)} placeholder="Neighbourhood, city, country"/></label>
-      <label className="block text-sm font-medium">Price (NGN)<input required min="0.01" step="0.01" inputMode="decimal" className="inp mt-1" type="number" value={f.price} onChange={e=>set('price',e.target.value)} placeholder="Actual shelf or checkout price"/></label>
+      <label className="block text-sm font-medium">Product name<input required className="inp mt-1" value={f.product} onChange={e=>set('product',e.target.value)} placeholder="Exact product name and size"/></label>
+      <label className="block text-sm font-medium">Shop name<input required className="inp mt-1" value={f.shop} onChange={e=>set('shop',e.target.value)} placeholder="Real shop where you checked"/></label>
+      <label className="block text-sm font-medium">Shop location / address<input required className="inp mt-1" value={f.area} onChange={e=>set('area',e.target.value)} placeholder="Address or neighbourhood, city"/></label>
+      <div className="grid grid-cols-2 gap-3"><label className="block text-sm font-medium">Country<input required className="inp mt-1" value={f.country} onChange={e=>set('country',e.target.value)} placeholder="Country"/></label><label className="block text-sm font-medium">Currency<select required className="inp mt-1" value={f.currency} onChange={e=>set('currency',e.target.value)}>{['NGN','GHS','KES','ZAR','GBP','USD','CAD','EUR','INR','AUD','Other'].map(code=><option key={code} value={code}>{code}</option>)}</select></label></div>
+      <label className="block text-sm font-medium">Price<input required min="0.01" step="0.01" inputMode="decimal" className="inp mt-1" type="number" value={f.price} onChange={e=>set('price',e.target.value)} placeholder="Actual shelf or checkout price"/></label>
       <label className="block text-sm font-medium">Date seen<input required className="inp mt-1" type="date" max={new Date().toISOString().slice(0,10)} value={f.date} onChange={e=>set('date',e.target.value)}/></label>
-      <label className="block text-sm font-medium">Receipt (optional)<input className="inp mt-1" type="file" accept="image/*,.pdf" onChange={e=>set('receipt',e.target.files?.[0]?.name||'')}/></label>
-      <button type="submit" className="btn w-full">Submit price report</button></form>
-    {c.subs.length>0&&<section><h2 className="mb-2 font-bold">Your price reports</h2><p className="mb-2 text-xs text-mute">These reports are private to this browser and do not appear as verified public prices.</p><ul className="space-y-2">{c.subs.map((s:any,i:number)=><li key={s.saved||i} className="card text-sm"><div className="flex flex-wrap items-start justify-between gap-2"><div><p className="font-semibold">{s.product}</p><p>{money(Number(s.price))} · {s.shop}, {s.area} · {s.date}</p><p className="mt-1 text-xs text-amber-800">{s.status||'Pending verification'}</p></div><button type="button" className="btn2" onClick={()=>c.setSubs(c.subs.filter((_:any,j:number)=>j!==i))}>Remove</button></div></li>)}</ul></section>}</div>
+      <button disabled={busy||!c.account} type="submit" className="btn w-full">{busy?'Submitting…':'Submit price report'}</button>
+    </form>
+    {c.subs.length>0&&<section><h2 className="mb-2 font-bold">Shared price reports</h2><ul className="space-y-2">{c.subs.map((r:any)=><li key={r.id} className="card text-sm"><p className="font-semibold">{r.product}</p><p>{money(Number(r.price),r.currency||'USD')} · {r.shop}, {r.area} · {r.date}</p><p className="mt-1 text-xs text-amber-800">{r.status}</p></li>)}</ul></section>}
+  </div>
 }
