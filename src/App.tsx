@@ -2,7 +2,7 @@ import {useEffect,useMemo,useRef,useState} from 'react'
 import type {FormEvent} from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import {AREAS,CATS,CUR,SHOPS,PRODUCTS,offersFor,history,change,km,Loc,Product} from './data'
+import {AREAS,CATS,CUR,SHOPS,PRODUCTS,offersFor,history,change,km,Loc,Product,Shop} from './data'
 
 function useLS<T>(k:string,init:T):[T,(v:T)=>void]{
   const [v,s]=useState<T>(()=>{try{const x=localStorage.getItem('pp:'+k);return x?JSON.parse(x):init}catch{return init}})
@@ -34,6 +34,7 @@ export default function App(){
   const [alerts,setAlerts]=useLS<Record<string,number>>('alerts',{})
   const [basket,setBasket]=useLS<Record<string,number>>('basket',{})
   const [subs,setSubs]=useLS<any[]>('subs',[])
+  const [shops,setShops]=useLS<Shop[]>('shops',[])
   const [geoMsg,setGeoMsg]=useState('')
   const [q,setQ]=useState('')
   const [menu,setMenu]=useState(false)
@@ -47,7 +48,7 @@ export default function App(){
   const [route,arg]=hash.replace('#/','').split('?')[0].split('/')
   const toggleSave=(id:string)=>setSaved(saved.includes(id)?saved.filter(x=>x!==id):[...saved,id])
   const dist=(s:{lat:number;lng:number})=>km(loc,s)
-  const ctx={loc,saved,toggleSave,alerts,setAlerts,basket,setBasket,subs,setSubs,dist}
+  const ctx={loc,saved,toggleSave,alerts,setAlerts,basket,setBasket,subs,setSubs,shops,setShops,dist}
 
   const links=[['','Home'],['search','Search'],['shops','Shops'],['basket','Basket'],['saved','Saved'],['submit','Submit price']]
   return <div className="min-h-screen flex flex-col">
@@ -75,7 +76,7 @@ export default function App(){
       {route==='submit'&&<Submit {...ctx}/>}
       {!['','search','p','shops','basket','saved','submit'].includes(route)&&<Empty t="Page not found" d="That page doesn't exist."/>}
     </main>
-    <footer className="border-t bg-soft px-4 py-6 text-center text-xs text-mute">PricePulse World · Know the price. Compare the world. Save smarter.<br/>All listings are <b>demo sample data</b> for illustration. They are not live prices, verified shops, stock or reviews. Maps © OpenStreetMap contributors.</footer>
+    <footer className="border-t bg-soft px-4 py-6 text-center text-xs text-mute">PricePulse World · Know the price. Compare the world. Save smarter.<br/>Only submitted listings are shown. Shop and price submissions require verification before being treated as trusted. Maps © OpenStreetMap contributors.</footer>
   </div>
 }
 
@@ -83,12 +84,13 @@ type C=any
 const Empty=({t,d}:{t:string;d:string})=><div className="card py-10 text-center"><p className="text-3xl">🔍</p><h2 className="mt-2 font-bold">{t}</h2><p className="text-sm text-mute">{d}</p></div>
 
 function Card({p,c}:{p:Product;c:C}){
-  const b=best(p),ch=change(p).pct
+  const offers=offersFor(p),b=offers[0],ch=change(p).pct
+  if(!b)return <Empty t="No verified price yet" d="No shop has submitted a price for this product yet."/>
   return <div className="card flex flex-col gap-2">
     <div className="flex justify-between"><span className="chip">{p.cat}</span><button aria-pressed={c.saved.includes(p.id)} aria-label={`Save ${p.name}`} onClick={()=>c.toggleSave(p.id)}>{c.saved.includes(p.id)?'★':'☆'}</button></div>
     <a href={'#/p/'+p.id} className="font-semibold hover:text-deep">{p.name}</a>
     <p className="text-lg font-extrabold text-deep">{money(b.price)} <span className={`text-xs ${ch<=0?'text-brand':'text-red-600'}`}>{ch>0?'▲':'▼'} {Math.abs(ch).toFixed(1)}%</span></p>
-    <p className="text-xs text-mute">Lowest sample offer · {b.shop.name} · {c.dist(b.shop).toFixed(1)} km <Demo/></p>
+    <p className="text-xs text-mute">Lowest submitted offer · {b.shop.name} · {c.dist(b.shop).toFixed(1)} km</p>
   </div>
 }
 
@@ -100,14 +102,14 @@ function Home({q,setQ,...c}:C){
   return <div className="space-y-8">
     <section className="rounded-3xl bg-gradient-to-br from-deep to-brand p-6 text-white md:p-10">
       <h1 className="text-3xl font-extrabold md:text-4xl">Know the price.<br/>Compare the world.<br/>Save smarter.</h1>
-      <p className="mt-2 text-sm text-green-50">Starting in Lagos, Nigeria. Browsing sample data until community prices are connected.</p>
+      <p className="mt-2 text-sm text-green-50">Starting in Lagos, Nigeria. Real listings will appear as shops and shoppers submit information.</p>
       <form className="mt-5 flex gap-2" role="search" onSubmit={e=>{e.preventDefault();go('/search?q='+encodeURIComponent(q))}}>
         <input aria-label="Search products" className="inp !text-ink" placeholder="Search rice, phone, TV, fan…" value={q} onChange={e=>setQ(e.target.value)}/>
         <button className="btn !bg-ink">Search</button></form></section>
     <section><h2 className="mb-3 text-lg font-bold">Categories</h2><div className="flex flex-wrap gap-2">{CATS.map(k=><a key={k} className="btn2" href={'#/search?q=&cat='+k}>{k}</a>)}</div></section>
     {load?<div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">{[1,2,3,4].map(i=><div key={i} className="sk"/>)}</div>:<>
-    <section><h2 className="mb-3 text-lg font-bold">Nearby deals <Demo/></h2><div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">{nearby.map(p=><Card key={p.id} p={p} c={c}/>)}</div></section>
-    <section><h2 className="mb-3 text-lg font-bold">Recent price changes <Demo/></h2><div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">{moves.map(p=><Card key={p.id} p={p} c={c}/>)}</div></section></>}
+    <section><h2 className="mb-3 text-lg font-bold">Nearby prices</h2><div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">{nearby.map(p=><Card key={p.id} p={p} c={c}/>)}</div></section>
+    <section><h2 className="mb-3 text-lg font-bold">Recent price changes</h2><div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">{moves.map(p=><Card key={p.id} p={p} c={c}/>)}</div></section></>}
   </div>
 }
 
@@ -122,38 +124,36 @@ function Search({q,cat,...c}:C){
       <select aria-label="Sort" className="ml-auto rounded-lg border px-2 py-1 text-sm" value={sort} onChange={e=>setSort(e.target.value)}><option value="price">Lowest price</option><option value="dist">Nearest</option></select></div>
     {err?<div role="alert" className="card text-center"><p>Something went wrong loading results.</p><button className="btn mt-2" onClick={()=>{setErr(false);setTick(tick+1)}}>Retry</button></div>
     :load?<div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">{[1,2,3].map(i=><div key={i} className="sk"/>)}</div>
-    :res.length===0?<Empty t="No products found" d="Try another word or category. Only a small demo catalogue is included."/>
+    :res.length===0?<Empty t="No products found" d="Try another word or category. No matching product is listed yet."/>
     :<div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">{res.map(p=><Card key={p.id} p={p} c={c}/>)}</div>}</div>
 }
 
 function Detail({id,...c}:C){
   const p=PRODUCTS.find(x=>x.id===id)
   const [target,setTarget]=useState('')
-  if(!p)return <Empty t="Product not found" d="This product isn't in the demo catalogue."/>
+  if(!p)return <Empty t="Product not found" d="This product has not been added to the catalogue yet."/>
   const offers=offersFor(p).sort((a,b)=>a.price-b.price),h=history(p)
   const mn=Math.min(...h.map(x=>x.price)),mx=Math.max(...h.map(x=>x.price))
   const pts=h.map((x,i)=>`${i*40+10},${70-((x.price-mn)/((mx-mn)||1))*60}`).join(' ')
   const al=c.alerts[p.id]
-  return <div className="space-y-6"><div><span className="chip">{p.cat}</span> <Demo/><h1 className="mt-2 text-2xl font-extrabold">{p.name}</h1>
+  return <div className="space-y-6"><div><span className="chip">{p.cat}</span><h1 className="mt-2 text-2xl font-extrabold">{p.name}</h1>
     <div className="mt-3 flex flex-wrap gap-2"><button className="btn2" onClick={()=>c.toggleSave(p.id)}>{c.saved.includes(p.id)?'★ Saved':'☆ Save'}</button><button className="btn" onClick={()=>c.setBasket({...c.basket,[p.id]:(c.basket[p.id]||0)+1})}>Add to basket</button></div></div>
     <section className="card"><h2 className="font-bold">Specifications</h2><ul className="mt-2 list-disc pl-5 text-sm text-mute">{p.specs.map(s=><li key={s}>{s}</li>)}</ul></section>
     <section><h2 className="mb-2 font-bold">Compare sellers (same product)</h2><div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="text-mute"><tr><th className="p-2">Shop</th><th>Price</th><th>Distance</th><th>Updated</th><th/></tr></thead><tbody>
       {offers.map((o,i)=><tr key={o.shop.id} className="border-t"><td className="p-2 font-medium">{o.shop.name}, {o.shop.area}{i===0&&<span className="chip ml-2">Lowest</span>}</td><td className="font-bold">{money(o.price)}</td><td>{c.dist(o.shop).toFixed(1)} km</td><td className="text-mute">{o.updated}</td><td><a className="text-deep underline" target="_blank" rel="noreferrer" href={`https://www.openstreetmap.org/directions?from=${c.loc.lat},${c.loc.lng}&to=${o.shop.lat},${o.shop.lng}`}>Directions</a></td></tr>)}</tbody></table></div>
-      <p className="mt-1 text-xs text-mute">Sample offers for illustration. Not live prices or stock.</p></section>
-    <section className="card"><h2 className="font-bold">Price history <Demo/></h2><svg viewBox="0 0 300 80" className="mt-2 w-full" role="img" aria-label={`Sample price history from ${money(h[0].price)} to ${money(h[h.length-1].price)}`}><polyline fill="none" stroke="#0BA95B" strokeWidth="3" points={pts}/></svg>
-      <p className="text-xs text-mute">Low {money(mn)} · High {money(mx)} · Synthetic 8-week sample series</p></section>
+      <p className="mt-1 text-xs text-mute">Submitted prices are not a guarantee of current availability.</p></section>
+    <section className="card"><h2 className="font-bold">Price history</h2><svg viewBox="0 0 300 80" className="mt-2 w-full" role="img" aria-label={`Sample price history from ${money(h[0].price)} to ${money(h[h.length-1].price)}`}><polyline fill="none" stroke="#0BA95B" strokeWidth="3" points={pts}/></svg>
+      <p className="text-xs text-mute">Low {money(mn)} · High {money(mx)} · History will appear after verified price reports are collected</p></section>
     <section className="card"><h2 className="font-bold">Price alert</h2><p className="text-sm text-mute">Stored on this device only. No notifications are sent in this demo; you'll see a flag on the Saved page.</p>
       <div className="mt-2 flex gap-2"><input className="inp" inputMode="numeric" aria-label="Target price in NGN" placeholder="Target price (₦)" value={target} onChange={e=>setTarget(e.target.value)}/><button className="btn" onClick={()=>{const n=Number(target);if(n>0)c.setAlerts({...c.alerts,[p.id]:n})}}>Set</button></div>
       {al&&<p className="mt-2 text-sm">Alert at {money(al)} · <button className="underline" onClick={()=>{const n={...c.alerts};delete n[p.id];c.setAlerts(n)}}>remove</button></p>}</section></div>
 }
 
 function Shops(c:C){
-  const [perm,setPerm]=useState(false)
-  const list=[...SHOPS].sort((a,b)=>c.dist(a)-c.dist(b))
-  return <div className="space-y-4"><h1 className="text-2xl font-extrabold">Nearby shops <Demo/></h1><p className="text-sm text-mute">Placeholder shops at approximate positions for demonstration. They are not verified businesses.</p>
+  const list=[...c.shops].sort((a:Shop,b:Shop)=>c.dist(a)-c.dist(b))
+  return <div className="space-y-4"><h1 className="text-2xl font-extrabold">Nearby shops</h1><p className="text-sm text-mute">Add real shop details below. Shops saved here are stored only in this browser and are not shared or verified.</p>
     <MapView center={c.loc} loc={c.loc}/>
-    <ul className="grid gap-3 sm:grid-cols-2">{list.map(s=><li key={s.id} className="card"><p className="font-semibold">{s.name}</p><p className="text-sm text-mute">{s.area} · {c.dist(s).toFixed(1)} km away</p>
-      <a className="btn2 mt-2" target="_blank" rel="noreferrer" href={`https://www.openstreetmap.org/directions?from=${c.loc.lat},${c.loc.lng}&to=${s.lat},${s.lng}`}>Get directions</a></li>)}</ul>{perm&&null}</div>
+    <form className="card space-y-3" onSubmit={e=>{e.preventDefault();const f=new FormData(e.currentTarget);const name=String(f.get("name")||"").trim(),area=String(f.get("area")||"").trim(),lat=Number(f.get("lat")),lng=Number(f.get("lng"));if(!name||!area||!Number.isFinite(lat)||!Number.isFinite(lng)||lat < -90||lat>90||lng < -180||lng>180)return;c.setShops([...c.shops,{id:crypto.randomUUID(),name,area,lat,lng}]);e.currentTarget.reset()}}><h2 className="font-bold">Add a shop</h2><label className="block text-sm font-medium">Shop name<input required name="name" className="inp mt-1" placeholder="Real shop or business name"/></label><label className="block text-sm font-medium">Address / area<input required name="area" className="inp mt-1" placeholder="Street, neighbourhood, city"/></label><div className="grid grid-cols-2 gap-3"><label className="block text-sm font-medium">Latitude<input required name="lat" type="number" step="any" className="inp mt-1" placeholder="6.5244"/></label><label className="block text-sm font-medium">Longitude<input required name="lng" type="number" step="any" className="inp mt-1" placeholder="3.3792"/></label></div><button className="btn">Save shop on this device</button></form>{list.length?<ul className="grid gap-3 sm:grid-cols-2">{list.map((s:Shop)=><li key={s.id} className="card"><p className="font-semibold">{s.name}</p><p className="text-sm text-mute">{s.area} · {c.dist(s).toFixed(1)} km away · Not verified</p><div className="mt-2 flex gap-2"><a className="btn2" target="_blank" rel="noreferrer" href={`https://www.openstreetmap.org/directions?from=${c.loc.lat},${c.loc.lng}&to=${s.lat},${s.lng}`}>Get directions</a><button className="btn2" onClick={()=>c.setShops(c.shops.filter((x:Shop)=>x.id!==s.id))}>Remove</button></div></li>)}</ul>:<Empty t="No shops added yet" d="There are no built-in sample shops. Add a real shop using the form above."/>}</div>
 }
 
 function Basket(c:C){
