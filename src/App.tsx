@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css'
 import AuthPage from './Auth'
 import {AREAS,CATS,CUR,SHOPS,PRODUCTS,offersFor,history,change,km,Loc,Product,Shop} from './data'
 import {dbRequest, type SessionAccount} from './db'
+import {MARKETS, COUNTRY_NAMES} from './markets'
 
 function useLS<T>(k:string,init:T):[T,(v:T)=>void]{
   const [v,s]=useState<T>(()=>{try{const x=localStorage.getItem('pp:'+k);return x?JSON.parse(x):init}catch{return init}})
@@ -48,9 +49,12 @@ export default function App(){
   const [account,setAccount]=useLS<{id:string;email:string;name:string;access_token?:string;refresh_token?:string}|null>('account',null)
   const [subs,setSubs]=useState<any[]>([])
   const [shops,setShops]=useState<any[]>([])
-  const [country,setCountry]=useLS('country','Nigeria')
-  const [city,setCity]=useLS('city','Lagos')
+  const [country,setCountryState]=useLS('country','Nigeria')
+  const [city,setCityState]=useLS('city','Lagos')
   const [currency,setCurrency]=useLS('currency','NGN')
+  const market=MARKETS[country]||MARKETS.Nigeria
+  const setCountry=(next:string)=>{const nextMarket=MARKETS[next]||MARKETS.Nigeria;setCountryState(next);setCityState(nextMarket.cities[0]);setCurrency(nextMarket.currency)}
+  const setCity=(next:string)=>setCityState(next)
   const [dataError,setDataError]=useState('')
   const refreshSharedData=async()=>{try{const data=await fetchSharedData(account);setShops(data.shops);setSubs(data.subs);setDataError('')}catch(e){setDataError(e instanceof Error?e.message:'Could not load shared data.')}}
   useEffect(()=>{let active=true;fetchSharedData(account).then(data=>{if(active){setShops(data.shops);setSubs(data.subs);setDataError('')}}).catch(e=>{if(active)setDataError(e instanceof Error?e.message:'Could not load shared data.')});return()=>{active=false}},[account?.id,account?.access_token])
@@ -82,9 +86,9 @@ export default function App(){
     </header>
     <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">
       <div className="mb-4 flex flex-wrap items-center gap-2 text-sm"><span className="text-mute">🌍 Market</span>
-        <label className="text-xs text-mute">Country<input aria-label="Market country" className="ml-1 rounded-lg border px-2 py-1 text-sm text-slate-900" value={country} onChange={e=>setCountry(e.target.value)} placeholder="Country" /></label>
-        <label className="text-xs text-mute">City<input aria-label="Market city" className="ml-1 rounded-lg border px-2 py-1 text-sm text-slate-900" value={city} onChange={e=>setCity(e.target.value)} placeholder="City" /></label>
-        <label className="text-xs text-mute">Currency<select aria-label="Display currency" className="ml-1 rounded-lg border px-2 py-1 text-sm text-slate-900" value={currency} onChange={e=>setCurrency(e.target.value)}>{['NGN','GHS','KES','ZAR','GBP','USD','CAD','EUR','INR','AUD'].map(code=><option key={code} value={code}>{code}</option>)}</select></label>
+        <label className="text-xs text-mute">Country<select aria-label="Market country" className="ml-1 rounded-lg border bg-white px-2 py-1 text-sm text-slate-900" value={country} onChange={e=>setCountry(e.target.value)}>{COUNTRY_NAMES.map(name=><option key={name} value={name}>{name}</option>)}</select></label>
+        <label className="text-xs text-mute">City<select aria-label="Market city" className="ml-1 rounded-lg border bg-white px-2 py-1 text-sm text-slate-900" value={market.cities.includes(city)?city:market.cities[0]} onChange={e=>setCity(e.target.value)}>{market.cities.map(name=><option key={name} value={name}>{name}</option>)}</select></label>
+        <label className="text-xs text-mute">Currency<select aria-label="Display currency" className="ml-1 rounded-lg border bg-white px-2 py-1 text-sm text-slate-900" value={currency} onChange={e=>setCurrency(e.target.value)}>{[...new Set(Object.values(MARKETS).map(item=>item.currency))].sort().map(code=><option key={code} value={code}>{code}</option>)}</select></label>
         <button className="btn2 !py-1" onClick={locate}>Use my location</button></div>
       {geoMsg&&<p role="status" className="mb-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{geoMsg}</p>}
       {dataError&&<p role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">Shared data could not load: {dataError}</p>}
