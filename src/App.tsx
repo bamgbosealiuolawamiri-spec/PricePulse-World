@@ -2,6 +2,7 @@ import {useEffect,useMemo,useRef,useState} from 'react'
 import type {FormEvent} from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import AuthPage from './Auth'
 import {AREAS,CATS,CUR,SHOPS,PRODUCTS,offersFor,history,change,km,Loc,Product,Shop} from './data'
 
 function useLS<T>(k:string,init:T):[T,(v:T)=>void]{
@@ -35,6 +36,7 @@ export default function App(){
   const [basket,setBasket]=useLS<Record<string,number>>('basket',{})
   const [subs,setSubs]=useLS<any[]>('subs',[])
   const [shops,setShops]=useLS<Shop[]>('shops',[])
+  const [account,setAccount]=useLS<{id:string;email:string;name:string;access_token?:string;refresh_token?:string}|null>('account',null)
   const [geoMsg,setGeoMsg]=useState('')
   const [q,setQ]=useState('')
   const [menu,setMenu]=useState(false)
@@ -50,7 +52,7 @@ export default function App(){
   const dist=(s:{lat:number;lng:number})=>km(loc,s)
   const ctx={loc,saved,toggleSave,alerts,setAlerts,basket,setBasket,subs,setSubs,shops,setShops,dist}
 
-  const links=[['','Home'],['search','Search'],['shops','Shops'],['basket','Basket'],['saved','Saved'],['submit','Submit price'],['admin','Admin']]
+  const links=[['','Home'],['search','Search'],['shops','Shops'],['basket','Basket'],['saved','Saved'],['submit','Submit price'],['admin','Admin'],['auth',account?'Account':'Log in']]
   return <div className="min-h-screen flex flex-col">
     <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-white focus:p-2">Skip to content</a>
     <header className="sticky top-0 z-40 border-b bg-white/95 backdrop-blur">
@@ -68,6 +70,7 @@ export default function App(){
         <span className="text-mute">Currency: NGN</span></div>
       {geoMsg&&<p role="status" className="mb-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{geoMsg}</p>}
       {route===''&&<Home q={q} setQ={setQ} {...ctx}/>}
+      {route==='auth'&&<AuthPage mode={hash.includes('mode=signup')?'signup':'login'} account={account} setAccount={setAccount}/>}
       {route==='search'&&<Search {...ctx} q={new URLSearchParams(hash.includes('?')?hash.slice(hash.indexOf('?')+1):'').get('q')||''} cat={new URLSearchParams(hash.includes('?')?hash.slice(hash.indexOf('?')+1):'').get('cat')||''}/>}
       {route==='p'&&<Detail id={arg} {...ctx}/>}
       {route==='shops'&&<Shops {...ctx}/>}
@@ -75,7 +78,7 @@ export default function App(){
       {route==='saved'&&<Saved {...ctx}/>}
       {route==='submit'&&<Submit {...ctx}/>}
       {route==='admin'&&<Admin {...ctx}/>}
-      {!['','search','p','shops','basket','saved','submit','admin'].includes(route)&&<Empty t="Page not found" d="That page doesn't exist."/>}
+      {!['','search','p','shops','basket','saved','submit','admin','auth'].includes(route)&&<Empty t="Page not found" d="That page doesn't exist."/>}
     </main>
     <footer className="border-t bg-soft px-4 py-6 text-center text-xs text-mute">PricePulse World · Know the price. Compare the world. Save smarter.<br/>Only submitted listings are shown. Shop and price submissions require verification before being treated as trusted. Maps © OpenStreetMap contributors.</footer>
   </div>
