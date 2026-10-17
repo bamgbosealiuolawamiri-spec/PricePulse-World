@@ -13,17 +13,17 @@ const Demo=()=><span className="chip" title="Sample data, not real prices">Demo 
 const go=(p:string)=>{location.hash=p}
 const best=(p:Product)=>offersFor(p).reduce((a,b)=>a.price<b.price?a:b)
 
-function MapView({center,loc}:{center:Loc;loc:Loc}){
+function MapView({center,loc,shops}:{center:Loc;loc:Loc;shops:Shop[]}){
   const el=useRef<HTMLDivElement>(null)
   useEffect(()=>{
     if(!el.current)return
     const m=L.map(el.current).setView([center.lat,center.lng],12)
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors',maxZoom:19}).addTo(m)
     L.circleMarker([loc.lat,loc.lng],{radius:9,color:'#087443',fillColor:'#0BA95B',fillOpacity:1}).addTo(m).bindPopup('Your selected location')
-    SHOPS.forEach(s=>L.circleMarker([s.lat,s.lng],{radius:7,color:'#17211B',fillColor:'#fff',fillOpacity:1}).addTo(m).bindPopup(`${s.name} (demo)<br/>${km(loc,s).toFixed(1)} km`))
+    shops.forEach(s=>L.circleMarker([s.lat,s.lng],{radius:7,color:'#17211B',fillColor:'#fff',fillOpacity:1}).addTo(m).bindPopup(`${s.name}<br/>${s.area}<br/>${km(loc,s).toFixed(1)} km · Not verified`))
     return()=>{m.remove()}
-  },[center,loc])
-  return <div ref={el} className="h-72 w-full rounded-2xl border" role="region" aria-label="Map of nearby demo shops"/>
+  },[center,loc,shops])
+  return <div ref={el} className="h-72 w-full rounded-2xl border" role="region" aria-label="Map of added shops"/>
 }
 
 export default function App(){
@@ -151,11 +151,40 @@ function Detail({id,...c}:C){
 
 function Shops(c:C){
   const list=[...c.shops].sort((a:Shop,b:Shop)=>c.dist(a)-c.dist(b))
+  const [formError,setFormError]=useState('')
+  const [notice,setNotice]=useState('')
+  const saveShop=(e:FormEvent<HTMLFormElement>)=>{
+    e.preventDefault()
+    const form=e.currentTarget
+    const f=new FormData(form)
+    const name=String(f.get('name')||'').trim()
+    const area=String(f.get('area')||'').trim()
+    const rawLat=String(f.get('lat')||'').trim()
+    const rawLng=String(f.get('lng')||'').trim()
+    const lat=rawLat===''?c.loc.lat:Number(rawLat)
+    const lng=rawLng===''?c.loc.lng:Number(rawLng)
+    if(!name||!area){setFormError('Enter the shop name and address/area.');return}
+    if((rawLat==='')!==(rawLng==='')){setFormError('Enter both latitude and longitude, or leave both blank.');return}
+    if(!Number.isFinite(lat)||!Number.isFinite(lng)||lat < -90||lat>90||lng < -180||lng>180){setFormError('Enter valid coordinates, or leave both blank to use your selected location.');return}
+    const shop:Shop={id:typeof crypto!=='undefined'&&'randomUUID' in crypto?crypto.randomUUID():String(Date.now()),name,area,lat,lng}
+    c.setShops([...c.shops,shop])
+    form.reset()
+    setFormError('')
+    setNotice('Shop saved on this device. It is not yet shared or verified.')
+  }
   return <div className="space-y-4"><h1 className="text-2xl font-extrabold">Nearby shops</h1><p className="text-sm text-mute">Add real shop details below. Shops saved here are stored only in this browser and are not shared or verified.</p>
-    <MapView center={c.loc} loc={c.loc}/>
-    <form className="card space-y-3" onSubmit={e=>{e.preventDefault();const f=new FormData(e.currentTarget);const name=String(f.get("name")||"").trim(),area=String(f.get("area")||"").trim(),lat=Number(f.get("lat")),lng=Number(f.get("lng"));if(!name||!area||!Number.isFinite(lat)||!Number.isFinite(lng)||lat < -90||lat>90||lng < -180||lng>180)return;c.setShops([...c.shops,{id:crypto.randomUUID(),name,area,lat,lng}]);e.currentTarget.reset()}}><h2 className="font-bold">Add a shop</h2><label className="block text-sm font-medium">Shop name<input required name="name" className="inp mt-1" placeholder="Real shop or business name"/></label><label className="block text-sm font-medium">Address / area<input required name="area" className="inp mt-1" placeholder="Street, neighbourhood, city"/></label><div className="grid grid-cols-2 gap-3"><label className="block text-sm font-medium">Latitude<input required name="lat" type="number" step="any" className="inp mt-1" placeholder="6.5244"/></label><label className="block text-sm font-medium">Longitude<input required name="lng" type="number" step="any" className="inp mt-1" placeholder="3.3792"/></label></div><button className="btn">Save shop on this device</button></form>{list.length?<ul className="grid gap-3 sm:grid-cols-2">{list.map((s:Shop)=><li key={s.id} className="card"><p className="font-semibold">{s.name}</p><p className="text-sm text-mute">{s.area} · {c.dist(s).toFixed(1)} km away · Not verified</p><div className="mt-2 flex gap-2"><a className="btn2" target="_blank" rel="noreferrer" href={`https://www.openstreetmap.org/directions?from=${c.loc.lat},${c.loc.lng}&to=${s.lat},${s.lng}`}>Get directions</a><button className="btn2" onClick={()=>c.setShops(c.shops.filter((x:Shop)=>x.id!==s.id))}>Remove</button></div></li>)}</ul>:<Empty t="No shops added yet" d="There are no built-in sample shops. Add a real shop using the form above."/>}</div>
+    <MapView center={c.loc} loc={c.loc} shops={list}/>
+    <form className="card space-y-3" onSubmit={saveShop}><h2 className="font-bold">Add a shop</h2>
+      <label className="block text-sm font-medium">Shop name<input required name="name" className="inp mt-1" placeholder="Real shop or business name"/></label>
+      <label className="block text-sm font-medium">Address / area<input required name="area" className="inp mt-1" placeholder="Street, neighbourhood, city"/></label>
+      <p className="text-xs text-mute">Coordinates are optional. Leave both blank to use your currently selected location, or enter the shop's actual coordinates for a more accurate map pin.</p>
+      <div className="grid grid-cols-2 gap-3"><label className="block text-sm font-medium">Latitude<input name="lat" type="number" step="any" className="inp mt-1" placeholder="Optional, e.g. 6.5244"/></label><label className="block text-sm font-medium">Longitude<input name="lng" type="number" step="any" className="inp mt-1" placeholder="Optional, e.g. 3.3792"/></label></div>
+      {formError&&<p role="alert" className="rounded-lg bg-red-50 p-2 text-sm text-red-700">{formError}</p>}
+      {notice&&<p role="status" className="rounded-lg bg-green-50 p-2 text-sm text-green-800">{notice}</p>}
+      <button type="submit" className="btn w-full">Save shop</button>
+    </form>
+    {list.length?<ul className="grid gap-3 sm:grid-cols-2">{list.map((s:Shop)=><li key={s.id} className="card"><p className="font-semibold">{s.name}</p><p className="text-sm text-mute">{s.area} · {c.dist(s).toFixed(1)} km away · Not verified</p><div className="mt-2 flex gap-2"><a className="btn2" target="_blank" rel="noreferrer" href={`https://www.openstreetmap.org/directions?from=${c.loc.lat},${c.loc.lng}&to=${s.lat},${s.lng}`}>Get directions</a><button type="button" className="btn2" onClick={()=>c.setShops(c.shops.filter((x:Shop)=>x.id!==s.id))}>Remove</button></div></li>)}</ul>:<Empty t="No shops added yet" d="There are no built-in sample shops. Add a real shop using the form above."/ >}</div>
 }
-
 function Basket(c:C){
   const items=PRODUCTS.filter(p=>c.basket[p.id])
   if(!items.length)return <Empty t="Your basket is empty" d="Add products from their detail pages to compare totals per shop."/>
