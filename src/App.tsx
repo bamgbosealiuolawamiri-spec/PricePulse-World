@@ -85,12 +85,12 @@ export default function App(){
     <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">
       <div className="mb-4 flex flex-wrap items-end gap-3 rounded-2xl border border-orange-100 bg-orange-50/50 p-3 text-sm"><span className="pb-2 font-semibold text-slate-700">🌍 Market</span>
         <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">Country
-          <select aria-label="Market country" className="min-w-44 rounded-lg border bg-white px-3 py-2 text-sm text-slate-900" value={MARKETS[country]?country:'Nigeria'} onChange={e=>{const next=e.target.value;setCountry(next);const nextCity=MARKETS[next].cities[0];setCity(nextCity);setCurrency(MARKETS[next].currency);setLoc({name:nextCity,lat:country==='Nigeria'?6.5244:0,lng:country==='Nigeria'?3.3792:0})}}>
+          <select aria-label="Market country" className="min-w-44 rounded-lg border bg-white px-3 py-2 text-sm text-slate-900" value={MARKETS[country]?country:'Nigeria'} onChange={e=>{const next=e.target.value;setCountry(next);const nextCity=MARKETS[next].cities[0];setCity(nextCity);setCurrency(MARKETS[next].currency)}}>
             {MARKET_COUNTRIES.map(name=><option key={name} value={name}>{name}</option>)}
           </select>
         </label>
         <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">City
-          <select aria-label="Market city" className="min-w-40 rounded-lg border bg-white px-3 py-2 text-sm text-slate-900" value={MARKETS[country]?.cities.includes(city)?city:(MARKETS[country]||MARKETS.Nigeria).cities[0]} onChange={e=>{setCity(e.target.value);setLoc({...loc,name:e.target.value})}}>
+          <select aria-label="Market city" className="min-w-40 rounded-lg border bg-white px-3 py-2 text-sm text-slate-900" value={MARKETS[country]?.cities.includes(city)?city:(MARKETS[country]||MARKETS.Nigeria).cities[0]} onChange={e=>setCity(e.target.value)}>
             {(MARKETS[country]||MARKETS.Nigeria).cities.map(name=><option key={name} value={name}>{name}</option>)}
           </select>
         </label>
