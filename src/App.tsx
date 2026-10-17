@@ -268,7 +268,62 @@ function Saved(c:C){
 
 
 function Admin(c:C){
-  return <div className="mx-auto max-w-2xl space-y-4"><h1 className="text-2xl font-extrabold">Secure verification</h1><div className="rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-950"><b>Administrator approval is locked until secure admin roles are configured.</b> This is intentional: a normal user must not be able to approve their own shop or price report. New submissions are stored in Supabase as pending and are shared according to the database access policies. Do not trust or label pending entries as verified.</div><p className="text-sm text-mute">Next, configure a server-side administrator role and restricted review policies in Supabase. Until that is done, do not approve records by changing browser state.</p><button className="btn2" onClick={c.refreshSharedData}>Refresh shared submissions</button></div>
+  const [checking,setChecking]=useState(true)
+  const [isAdmin,setIsAdmin]=useState(false)
+  const [error,setError]=useState('')
+  const [pendingShops,setPendingShops]=useState<any[]>([])
+  const [pendingPrices,setPendingPrices]=useState<any[]>([])
+  const [busyId,setBusyId]=useState('')
+  const [notice,setNotice]=useState('')
+
+  const loadReviewQueue=async()=>{
+    if(!c.account){setIsAdmin(false);setChecking(false);return}
+    setChecking(true);setError('')
+    try{
+      const result=await dbRequest<boolean>('rpc/is_pricepulse_admin',{method:'POST',account:c.account,body:{}})
+      if(result!==true){setIsAdmin(false);setPendingShops([]);setPendingPrices([]);return}
+      setIsAdmin(true)
+      const [shops,prices]=await Promise.all([
+        dbRequest<any[]>('shops',{account:c.account,query:'select=id,name,address,city,country,verification_status,created_at&verification_status=eq.pending&order=created_at.asc'}),
+        dbRequest<any[]>('price_reports',{account:c.account,query:'select=id,product_name,shop_name,location,country,currency_code,price,date_seen,verification_status,created_at&verification_status=eq.pending&order=created_at.asc'})
+      ])
+      setPendingShops(shops||[]);setPendingPrices(prices||[])
+    }catch(e){
+      setError(e instanceof Error?e.message:'Could not load administrator review queue.')
+    }finally{setChecking(false)}
+  }
+  useEffect(()=>{void loadReviewQueue()},[c.account?.id,c.account?.access_token])
+
+  const review=async(kind:'shop'|'price',id:string,approved:boolean)=>{
+    if(!c.account||!isAdmin)return
+    setBusyId(id);setError('');setNotice('')
+    try{
+      const table=kind==='shop'?'shops':'price_reports'
+      const status=approved?(kind==='shop'?'verified':'approved'):'rejected'
+      await dbRequest(table,{method:'PATCH',account:c.account,query:`id=eq.${encodeURIComponent(id)}&select=id`,prefer:'return=representation',body:{verification_status:status}})
+      setNotice(approved?'Submission approved.':'Submission rejected.')
+      await Promise.all([loadReviewQueue(),c.refreshSharedData()])
+    }catch(e){setError(e instanceof Error?e.message:'Could not update this submission.')}
+    finally{setBusyId('')}
+  }
+
+  if(checking)return <div className="mx-auto max-w-2xl space-y-3"><h1 className="text-2xl font-extrabold">Administrator review</h1><p className="text-sm text-mute">Checking secure administrator permissions…</p></div>
+  if(!c.account)return <div className="mx-auto max-w-2xl space-y-3"><h1 className="text-2xl font-extrabold">Administrator review</h1><div className="rounded-xl bg-amber-50 p-4 text-sm text-amber-950">Please log in with your authorized administrator account to review submissions.</div><a className="btn inline-block" href="#/auth">Log in</a></div>
+  if(!isAdmin)return <div className="mx-auto max-w-2xl space-y-4"><h1 className="text-2xl font-extrabold">Secure verification</h1><div className="rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-950"><b>This account does not have administrator approval permissions.</b> Only accounts explicitly authorized in Supabase can review shops and price reports.</div>{error&&<p role="alert" className="text-sm text-red-700">{error}</p>}<button className="btn2" onClick={()=>void loadReviewQueue()}>Check permissions again</button></div>
+
+  return <div className="mx-auto max-w-3xl space-y-5">
+    <div className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-extrabold">Administrator review</h1><p className="text-sm text-mute">Review real submissions before they are marked as trusted.</p></div><button className="btn2" onClick={()=>void loadReviewQueue()}>Refresh queue</button></div>
+    {error&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+    {notice&&<p role="status" className="rounded-xl bg-green-50 p-3 text-sm text-green-800">{notice}</p>}
+    <section className="space-y-3"><h2 className="font-bold">Pending shops ({pendingShops.length})</h2>
+      {!pendingShops.length&&<p className="rounded-xl bg-soft p-4 text-sm text-mute">No pending shops to review.</p>}
+      {pendingShops.map((s:any)=><article key={s.id} className="card space-y-2"><h3 className="font-semibold">{s.name}</h3><p className="text-sm text-mute">{s.address}, {s.city}, {s.country}</p><div className="flex flex-wrap gap-2"><button disabled={!!busyId} className="btn" onClick={()=>void review('shop',s.id,true)}>{busyId===s.id?'Saving…':'Approve shop'}</button><button disabled={!!busyId} className="btn2" onClick={()=>void review('shop',s.id,false)}>Reject</button></div></article>)}
+    </section>
+    <section className="space-y-3"><h2 className="font-bold">Pending price reports ({pendingPrices.length})</h2>
+      {!pendingPrices.length&&<p className="rounded-xl bg-soft p-4 text-sm text-mute">No pending price reports to review.</p>}
+      {pendingPrices.map((p:any)=><article key={p.id} className="card space-y-2"><h3 className="font-semibold">{p.product_name}</h3><p className="text-sm">{p.currency_code} {Number(p.price).toLocaleString()} · {p.shop_name}</p><p className="text-sm text-mute">{p.location}, {p.country} · Seen {p.date_seen}</p><div className="flex flex-wrap gap-2"><button disabled={!!busyId} className="btn" onClick={()=>void review('price',p.id,true)}>{busyId===p.id?'Saving…':'Approve price'}</button><button disabled={!!busyId} className="btn2" onClick={()=>void review('price',p.id,false)}>Reject</button></div></article>)}
+    </section>
+  </div>
 }
 
 function Submit(c:C){
