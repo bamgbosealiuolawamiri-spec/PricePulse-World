@@ -74,7 +74,7 @@ export default function App(){
     <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-white focus:p-2">Skip to content</a>
     <header className="sticky top-0 z-40 border-b bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-        <a href="#/" className="flex items-center gap-2 font-extrabold text-deep"><span className="grid h-8 w-8 place-items-center rounded-xl bg-brand text-white">₦</span>PricePulse <span className="text-brand">World</span></a>
+        <a href="#/" className="flex items-center gap-2 font-extrabold text-deep"><span className="grid h-8 w-8 place-items-center rounded-xl bg-brand text-white">🌍</span>PricePulse <span className="text-brand">World</span></a>
         <nav className="hidden gap-1 md:flex" aria-label="Main">{links.map(([h,l])=><a key={h} href={'#/'+h} className={`rounded-lg px-3 py-2 text-sm font-medium hover:bg-soft ${route===h?'bg-soft text-deep':'text-mute'}`}>{l}{h==='basket'&&Object.keys(basket).length?` (${Object.keys(basket).length})`:''}</a>)}</nav>
         <button className="btn2 md:hidden" aria-expanded={menu} aria-label="Toggle menu" onClick={()=>setMenu(!menu)}>{menu?'✕':'☰'}</button>
       </div>
@@ -118,8 +118,8 @@ function Card({p,c}:{p:Product;c:C}){
 }
 
 function Home({q,setQ,...c}:C){
-  const approvedPrices=c.subs.filter((s:any)=>s.status==='Approved')
-  const verifiedShops=c.shops.filter((s:Shop&{verified?:boolean})=>s.verified)
+  const approvedPrices=c.subs.filter((s:any)=>s.status==='Approved'&&String(s.country||'').toLowerCase()===String(c.country||'').toLowerCase()&&(!c.city||String(s.area||'').toLowerCase().includes(String(c.city).toLowerCase())))
+  const verifiedShops=c.shops.filter((s:any)=>s.verified&&String(s.country||'').toLowerCase()===String(c.country||'').toLowerCase()&&String(s.city||'').toLowerCase()===String(c.city||'').toLowerCase())
   const pendingPrices=c.subs.filter((s:any)=>s.status==='Pending verification').length
   return <div className="space-y-10">
     <section className="relative isolate overflow-hidden rounded-[2rem] bg-[#101B35] px-6 py-10 text-white shadow-xl md:px-10 md:py-14">
@@ -135,7 +135,7 @@ function Home({q,setQ,...c}:C){
             <input aria-label="Search products" className="min-w-0 flex-1 border-0 px-3 py-3 text-sm text-[#27231F] outline-none ring-0 placeholder:text-slate-400 focus:ring-0" placeholder="What do you want to price-check?" value={q} onChange={e=>setQ(e.target.value)}/>
             <button className="rounded-xl bg-orange-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-orange-700">Find prices <span aria-hidden="true">→</span></button>
           </form>
-          <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs text-slate-300"><span>✓ Community submitted</span><span>✓ Verification first</span><span>✓ Starting in Lagos</span></div>
+          <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs text-slate-300"><span>✓ Community submitted</span><span>✓ Verification first</span><span>✓ Built for every market</span></div>
         </div>
         <div className="mx-auto w-full max-w-sm">
           <div className="rounded-3xl border border-white/15 bg-white/[0.08] p-5 shadow-2xl backdrop-blur">
@@ -177,7 +177,7 @@ function Home({q,setQ,...c}:C){
 
 function Search({q,cat,...c}:C){
   const [text,setText]=useState(q),[sort,setSort]=useState('country');useEffect(()=>setText(q),[q])
-  const reports=(c.subs||[]).filter((r:any)=>r.status==='Approved'&&(!q||String(r.product).toLowerCase().includes(q.toLowerCase())))
+  const reports=(c.subs||[]).filter((r:any)=>r.status==='Approved'&&String(r.country||'').toLowerCase()===String(c.country||'').toLowerCase()&&(!c.city||String(r.area||'').toLowerCase().includes(String(c.city).toLowerCase()))&&(!q||String(r.product).toLowerCase().includes(q.toLowerCase())))
   const groups=Object.values(reports.reduce((acc:any,r:any)=>{const key=[r.product,r.country,r.currency].join('|');if(!acc[key])acc[key]={key,product:r.product,country:r.country,currency:r.currency||'USD',reports:[]};acc[key].reports.push(r);return acc},{})).map((g:any)=>({...g,reports:g.reports.sort((a:any,b:any)=>a.price-b.price)}))
   const results=groups.sort((a:any,b:any)=>String(a.country).localeCompare(String(b.country)))
   return <div><form className="mb-4 flex gap-2" role="search" onSubmit={e=>{e.preventDefault();go('/search?q='+encodeURIComponent(text)+(cat?'&cat='+encodeURIComponent(cat):''))}}><input aria-label="Search" className="inp" value={text} onChange={e=>setText(e.target.value)} placeholder="Search verified community prices worldwide"/><button className="btn">Search</button></form>
@@ -207,7 +207,7 @@ function Detail({id,...c}:C){
 }
 
 function Shops(c:C){
-  const list=[...c.shops].sort((a:any,b:any)=>c.dist(a)-c.dist(b))
+  const list=[...c.shops].filter((s:any)=>String(s.country||'').toLowerCase()===String(c.country||'').toLowerCase()&&String(s.city||'').toLowerCase()===String(c.city||'').toLowerCase()).sort((a:any,b:any)=>c.dist(a)-c.dist(b))
   const [formError,setFormError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false)
   const saveShop=async(e:FormEvent<HTMLFormElement>)=>{
     e.preventDefault();setFormError('');setNotice('')
