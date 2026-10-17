@@ -50,7 +50,7 @@ export default function App(){
   const dist=(s:{lat:number;lng:number})=>km(loc,s)
   const ctx={loc,saved,toggleSave,alerts,setAlerts,basket,setBasket,subs,setSubs,shops,setShops,dist}
 
-  const links=[['','Home'],['search','Search'],['shops','Shops'],['basket','Basket'],['saved','Saved'],['submit','Submit price'],['admin','Admin']
+  const links=[['','Home'],['search','Search'],['shops','Shops'],['basket','Basket'],['saved','Saved'],['submit','Submit price'],['admin','Admin']]
   return <div className="min-h-screen flex flex-col">
     <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-white focus:p-2">Skip to content</a>
     <header className="sticky top-0 z-40 border-b bg-white/95 backdrop-blur">
