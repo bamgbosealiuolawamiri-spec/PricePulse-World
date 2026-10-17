@@ -205,18 +205,28 @@ function Saved(c:C){
 }
 
 function Submit(c:C){
-  const [f,setF]=useState({product:'',shop:'',area:c.loc.name,price:'',date:new Date().toISOString().slice(0,10),receipt:''})
+  const blank=()=>({product:'',shop:'',area:c.loc.name,price:'',date:new Date().toISOString().slice(0,10),receipt:''})
+  const [f,setF]=useState(blank)
   const [done,setDone]=useState(false),[err,setErr]=useState('')
   const set=(k:string,v:string)=>setF({...f,[k]:v})
-  const submit=(e:FormEvent)=>{e.preventDefault();if(!f.product.trim()||!f.shop.trim()||!(Number(f.price)>0)){setErr('Please enter a product, shop and a valid price.');return}
-    setErr('');c.setSubs([{...f,saved:new Date().toISOString()},...c.subs]);setDone(true)}
+  const submit=(e:FormEvent)=>{e.preventDefault();const price=Number(f.price)
+    if(!f.product.trim()||!f.shop.trim()||!f.area.trim()||!Number.isFinite(price)||price<=0){setErr('Enter the product, shop, location and a price greater than zero.');return}
+    if(!f.date||f.date>new Date().toISOString().slice(0,10)){setErr('Choose a valid date that is today or earlier.');return}
+    const record={...f,price,saved:new Date().toISOString(),status:'Pending verification'}
+    setErr('');c.setSubs([record,...c.subs]);setDone(true);setF(blank())
+  }
   return <div className="mx-auto max-w-xl space-y-4"><h1 className="text-2xl font-extrabold">Submit a price</h1>
-    <p role="note" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900"><b>Demo mode:</b> submissions are saved only in this browser. They are not uploaded, reviewed or shared with other users. Receipt files are not uploaded; only the file name is kept.</p>
-    {done&&<p role="status" className="rounded-xl bg-soft p-3 text-sm text-deep">Saved on this device. <button className="underline" onClick={()=>setDone(false)}>Add another</button></p>}
+    <p className="text-sm text-mute">Help people compare real prices by reporting what you actually saw at a shop. Do not guess or invent prices.</p>
+    <p role="note" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900"><b>Local testing only:</b> submissions are saved in this browser and are not shared with other users yet. They remain unverified. Receipt files are not uploaded; only the file name is kept.</p>
+    {done&&<p role="status" className="rounded-xl bg-soft p-3 text-sm text-deep">Price report saved on this device and marked pending verification. <button className="underline" onClick={()=>setDone(false)}>Dismiss</button></p>}
     {err&&<p role="alert" className="text-sm text-red-600">{err}</p>}
     <form onSubmit={submit} className="card space-y-3">
-      {([['product','Product name','text'],['shop','Shop name','text'],['area','Location / area','text'],['price','Price (NGN)','number'],['date','Date seen','date']] as const).map(([k,l,t])=><label key={k} className="block text-sm font-medium">{l}<input className="inp mt-1" type={t} value={(f as any)[k]} onChange={e=>set(k,e.target.value)}/></label>)}
+      <label className="block text-sm font-medium">Product name<input required className="inp mt-1" type="text" value={f.product} onChange={e=>set('product',e.target.value)} placeholder="e.g. 1 kg bag of rice"/></label>
+      <label className="block text-sm font-medium">Shop name<input required className="inp mt-1" type="text" value={f.shop} onChange={e=>set('shop',e.target.value)} placeholder="Name of the shop where you checked"/></label>
+      <label className="block text-sm font-medium">Location / area<input required className="inp mt-1" type="text" value={f.area} onChange={e=>set('area',e.target.value)} placeholder="Neighbourhood, city, country"/></label>
+      <label className="block text-sm font-medium">Price (NGN)<input required min="0.01" step="0.01" inputMode="decimal" className="inp mt-1" type="number" value={f.price} onChange={e=>set('price',e.target.value)} placeholder="Actual shelf or checkout price"/></label>
+      <label className="block text-sm font-medium">Date seen<input required className="inp mt-1" type="date" max={new Date().toISOString().slice(0,10)} value={f.date} onChange={e=>set('date',e.target.value)}/></label>
       <label className="block text-sm font-medium">Receipt (optional)<input className="inp mt-1" type="file" accept="image/*,.pdf" onChange={e=>set('receipt',e.target.files?.[0]?.name||'')}/></label>
-      <button className="btn w-full">Save on this device</button></form>
-    {c.subs.length>0&&<section><h2 className="mb-2 font-bold">Your local submissions</h2><ul className="space-y-2">{c.subs.map((s:any,i:number)=><li key={i} className="card text-sm">{s.product} · {money(Number(s.price))} · {s.shop}, {s.area} · {s.date}</li>)}</ul></section>}</div>
+      <button type="submit" className="btn w-full">Submit price report</button></form>
+    {c.subs.length>0&&<section><h2 className="mb-2 font-bold">Your price reports</h2><p className="mb-2 text-xs text-mute">These reports are private to this browser and do not appear as verified public prices.</p><ul className="space-y-2">{c.subs.map((s:any,i:number)=><li key={s.saved||i} className="card text-sm"><div className="flex flex-wrap items-start justify-between gap-2"><div><p className="font-semibold">{s.product}</p><p>{money(Number(s.price))} · {s.shop}, {s.area} · {s.date}</p><p className="mt-1 text-xs text-amber-800">{s.status||'Pending verification'}</p></div><button type="button" className="btn2" onClick={()=>c.setSubs(c.subs.filter((_:any,j:number)=>j!==i))}>Remove</button></div></li>)}</ul></section>}</div>
 }
