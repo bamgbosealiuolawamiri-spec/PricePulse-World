@@ -85,14 +85,20 @@ export default function App(){
     <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">
       <div className="mb-4 flex flex-wrap items-end gap-3 rounded-2xl border border-orange-100 bg-orange-50/50 p-3 text-sm"><span className="pb-2 font-semibold text-slate-700">🌍 Market</span>
         <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">Country
-          <select aria-label="Market country" className="min-w-44 rounded-lg border bg-white px-3 py-2 text-sm text-slate-900" value={MARKETS[country]?country:'Nigeria'} onChange={e=>{const next=e.target.value;setCountry(next);const nextCity=MARKETS[next].cities[0];setCity(nextCity);setCurrency(MARKETS[next].currency)}}>
-            {MARKET_COUNTRIES.map(name=><option key={name} value={name}>{name}</option>)}
-          </select>
+          <span className="relative block">
+            <select aria-label="Market country" className="min-w-44 appearance-none rounded-lg border border-orange-200 bg-white px-3 py-2 pr-10 text-sm text-slate-900 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-200" value={MARKETS[country]?country:'Nigeria'} onChange={e=>{const next=e.target.value;setCountry(next);const nextCity=MARKETS[next].cities[0];setCity(nextCity);setCurrency(MARKETS[next].currency)}}>
+              {MARKET_COUNTRIES.map(name=><option key={name} value={name}>{name}</option>)}
+            </select>
+            <svg aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-orange-700" viewBox="0 0 20 20" fill="none"><path d="m5 7.5 5 5 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </span>
         </label>
         <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">City
-          <select aria-label="Market city" className="min-w-40 rounded-lg border bg-white px-3 py-2 text-sm text-slate-900" value={MARKETS[country]?.cities.includes(city)?city:(MARKETS[country]||MARKETS.Nigeria).cities[0]} onChange={e=>setCity(e.target.value)}>
-            {(MARKETS[country]||MARKETS.Nigeria).cities.map(name=><option key={name} value={name}>{name}</option>)}
-          </select>
+          <span className="relative block">
+            <select aria-label="Market city" className="min-w-40 appearance-none rounded-lg border border-orange-200 bg-white px-3 py-2 pr-10 text-sm text-slate-900 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-200" value={MARKETS[country]?.cities.includes(city)?city:(MARKETS[country]||MARKETS.Nigeria).cities[0]} onChange={e=>setCity(e.target.value)}>
+              {(MARKETS[country]||MARKETS.Nigeria).cities.map(name=><option key={name} value={name}>{name}</option>)}
+            </select>
+            <svg aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-orange-700" viewBox="0 0 20 20" fill="none"><path d="m5 7.5 5 5 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </span>
         </label>
         <div className="flex flex-col gap-1 text-xs font-medium text-slate-600">Currency
           <span className="rounded-lg border border-orange-200 bg-white px-3 py-2 text-sm font-bold text-orange-800">{MARKETS[country]?.symbol||'₦'} {MARKETS[country]?.currency||'NGN'} <span className="text-xs font-normal text-slate-500">· automatic</span></span>
