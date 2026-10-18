@@ -83,7 +83,7 @@ export default function AuthPage({mode:initialMode,account,setAccount}:Props){
   const requestPhoneCode=async()=>{
     setError('');setNotice('')
     if(!configured){setError('Phone verification is not configured yet. Email login remains available.');return}
-    const digits=phone.replace(/\\D/g,'')
+    const digits=phone.replace(/\D/g,'')
     if(digits.length<6||digits.length>14){setError('Enter a valid phone number without the country calling code; choose the country code first.');return}
     setBusy(true)
     try{
@@ -104,10 +104,10 @@ export default function AuthPage({mode:initialMode,account,setAccount}:Props){
   const verifyPhoneCode=async()=>{
     setError('');setNotice('')
     if(!configured){setError('Phone verification is not configured yet.');return}
-    if(!/^\\d{4,8}$/.test(otp.trim())){setError('Enter the verification code from your SMS.');return}
+    if(!/^\d{4,8}$/.test(otp.trim())){setError('Enter the verification code from your SMS.');return}
     setBusy(true)
     try{
-      const internationalPhone=phoneCode+phone.replace(/\\D/g,'')
+      const internationalPhone=phoneCode+phone.replace(/\D/g,'')
       const response=await fetch(SUPABASE_URL+'/auth/v1/verify',{
         method:'POST',
         headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY},
