@@ -68,7 +68,11 @@ export default function App(){
     navigator.geolocation.getCurrentPosition(p=>{setLoc({name:'My current location',lat:p.coords.latitude,lng:p.coords.longitude});setGeoMsg('')},
       e=>setGeoMsg(e.code===1?'Location permission denied. Choose an area manually below, or allow location in your browser settings.':'Could not get your location. Choose an area manually.'),{timeout:10000})
   }
-  const [route,arg]=hash.replace('#/','').split('?')[0].split('/')
+  const [parsedRoute,arg]=hash.replace('#/','').split('?')[0].split('/')
+  const recoveryHash=location.hash.replace(/^#/, '')
+  const recoveryParams=new URLSearchParams(recoveryHash.startsWith('/')?recoveryHash.slice(1):recoveryHash)
+  const recoveryLink=recoveryParams.get('type')==='recovery'||recoveryParams.has('access_token')||recoveryParams.has('token_hash')||new URLSearchParams(location.search).has('code')
+  const route=recoveryLink?'auth':parsedRoute
   const toggleSave=(id:string)=>setSaved(saved.includes(id)?saved.filter(x=>x!==id):[...saved,id])
   const dist=(s:{lat:number;lng:number})=>km(loc,s)
   const ctx={loc,saved,toggleSave,alerts,setAlerts,basket,setBasket,subs,setSubs,shops,setShops,dist,account,country,setCountry,city,setCity,currency,setCurrency,refreshSharedData}
