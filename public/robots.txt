@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://pricepulse-world-app.bamgbosealiuolawamiri.workers.dev/sitemap.xml
