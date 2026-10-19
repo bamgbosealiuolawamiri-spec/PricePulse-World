@@ -107,7 +107,7 @@ export default function App(){
       {route==='admin'&&<Admin {...ctx}/>}
       {!['','search','p','shops','basket','saved','submit','admin','auth'].includes(route)&&<Empty t="Page not found" d="That page doesn't exist."/>}
     </main>
-    <footer className="border-t bg-soft px-4 py-6 text-center text-xs text-mute">PricePulse World · Know the price. Compare the world. Save smarter.<br/>Only submitted listings are shown. Shop and price submissions require verification before being treated as trusted. Maps © OpenStreetMap contributors.</footer>
+    <footer className="border-t bg-soft px-4 py-6 text-center text-xs text-mute">PricePulse World · Know the price. Compare the world. Save smarter.<br/><nav className="my-3 flex flex-wrap justify-center gap-4" aria-label="Information"><a className="underline" href="/about/">About</a><a className="underline" href="/how-it-works/">How it works</a><a className="underline" href="/explore-prices/">Explore prices</a></nav>Only submitted listings are shown. Shop and price submissions require verification before being treated as trusted. Maps © OpenStreetMap contributors.</footer>
   </div>
 }
 
