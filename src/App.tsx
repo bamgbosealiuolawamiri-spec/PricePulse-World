@@ -136,7 +136,7 @@ function Home({q,setQ,...c}:C){
       <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold tracking-wide text-orange-50"><span className="h-2 w-2 rounded-full bg-cyan-300"/> LOCAL PRICES. SMARTER CHOICES.</div>
       <div className="grid items-center gap-8 md:grid-cols-[1.2fr_.8fr]">
         <div>
-          <h1 className="max-w-2xl text-4xl font-black leading-[1.08] tracking-tight md:text-6xl">Know the price.<br/><span className="text-cyan-300">Keep more money.</span></h1>
+          <h1 className="max-w-2xl text-4xl font-black leading-[1.08] tracking-tight md:text-6xl">Compare product prices.<br/><span className="text-cyan-300">Keep more money.</span></h1>
           <p className="mt-5 max-w-xl text-base leading-7 text-slate-200 md:text-lg">Compare community-reported prices, discover nearby shops, and make a more confident choice before you buy.</p>
           <form className="mt-7 flex flex-col gap-2 rounded-2xl bg-white p-2 shadow-lg sm:flex-row" role="search" onSubmit={e=>{e.preventDefault();go('/search?q='+encodeURIComponent(q))}}>
             <span className="hidden items-center pl-3 text-xl text-slate-400 sm:flex" aria-hidden="true">⌕</span>
