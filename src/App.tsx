@@ -107,7 +107,17 @@ export default function App(){
       {route==='admin'&&<Admin {...ctx}/>}
       {!['','search','p','shops','basket','saved','submit','admin','auth'].includes(route)&&<Empty t="Page not found" d="That page doesn't exist."/>}
     </main>
-    <footer className="border-t bg-soft px-4 py-6 text-center text-xs text-mute">PricePulse World · Know the price. Compare the world. Save smarter.<br/><nav className="my-3 flex flex-wrap justify-center gap-4" aria-label="Information"><a className="underline" href="/about/">About</a><a className="underline" href="/how-it-works/">How it works</a><a className="underline" href="/explore-prices/">Explore prices</a></nav>Only submitted listings are shown. Shop and price submissions require verification before being treated as trusted. Maps © OpenStreetMap contributors.</footer>
+    <footer className="border-t bg-soft px-4 py-6 text-center text-xs text-mute">
+      <section className="mx-auto mb-4 max-w-2xl rounded-2xl border border-emerald-100 bg-white px-5 py-4 text-left shadow-sm" aria-labelledby="creator-credit-title">
+        <p className="text-[11px] font-bold uppercase tracking-[.16em] text-emerald-700">About the creator</p>
+        <h2 id="creator-credit-title" className="mt-1 text-base font-extrabold text-slate-900">Created by Bamgbose Aliu Olawamiri</h2>
+        <p className="mt-1 text-sm leading-6 text-slate-600">Product Designer &amp; UI/UX Designer building useful digital experiences. PricePulse World helps shoppers explore community-reported prices and make more informed shopping decisions.</p>
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm font-semibold">
+          <a className="text-emerald-800 underline" href="/about/">About the creator</a>
+          <a className="text-emerald-800 underline" href="https://www.linkedin.com/in/bamgbose-aliu" target="_blank" rel="noreferrer">LinkedIn</a>
+          <a className="text-emerald-800 underline" href="https://www.behance.net/bamgbosolawami" target="_blank" rel="noreferrer">Behance</a>
+        </div>
+      </section>PricePulse World · Know the price. Compare the world. Save smarter.<br/><nav className="my-3 flex flex-wrap justify-center gap-4" aria-label="Information"><a className="underline" href="/about/">About</a><a className="underline" href="/how-it-works/">How it works</a><a className="underline" href="/explore-prices/">Explore prices</a></nav>Only submitted listings are shown. Shop and price submissions require verification before being treated as trusted. Maps © OpenStreetMap contributors.</footer>
   </div>
 }
 
