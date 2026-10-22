@@ -16,7 +16,7 @@ const Demo=()=><span className="chip" title="Sample data, not real prices">Demo 
 const go=(p:string)=>{location.hash=p}
 const best=(p:Product)=>offersFor(p).reduce((a,b)=>a.price<b.price?a:b)
 
-const mapShop=(r:any)=>({id:r.id,name:r.name,area:[r.address,r.city,r.country].filter(Boolean).join(', '),lat:Number(r.latitude),lng:Number(r.longitude),verified:r.verification_status==='verified',country:r.country,city:r.city,address:r.address,status:r.verification_status,owner_id:r.owner_id})
+const mapShop=(r:any)=>({id:r.id,name:r.name,area:[r.address,r.city,r.country].filter(Boolean).join(', '),lat:Number(r.latitude),lng:Number(r.longitude),verified:r.verification_status==='verified',country:r.country,city:r.city,address:r.address,phone:String(r.phone||''),whatsapp:String(r.whatsapp||''),status:r.verification_status,owner_id:r.owner_id})
 const mapPrice=(r:any)=>({id:r.id,product:r.product_name,shop:r.shop_name,area:r.location,price:Number(r.price),date:r.date_seen,saved:r.created_at,status:r.verification_status==='approved'?'Approved':r.verification_status==='rejected'?'Rejected':'Pending verification',currency:r.currency_code||'USD',country:r.country,submitted_by:r.submitted_by})
 async function fetchSharedData(account:SessionAccount|null){
   const [shopRows,priceRows]=await Promise.all([
@@ -233,14 +233,18 @@ function Shops(c:C){
     const form=e.currentTarget,f=new FormData(form)
     const name=String(f.get('name')||'').trim(),address=String(f.get('address')||'').trim()
     const city=String(f.get('city')||'').trim(),country=String(f.get('country')||'').trim()
+    const phone=String(f.get('phone')||'').trim(),whatsapp=String(f.get('whatsapp')||'').trim()
+    const cleanPhone=(value:string)=>value.replace(/[\s()-]/g,'')
     const rawLat=String(f.get('lat')||'').trim(),rawLng=String(f.get('lng')||'').trim()
     if(!name||!address||!city||!country){setFormError('Enter the real shop name, address, city and country.');return}
+    if(phone&&!/^\+?[0-9]{7,15}$/.test(cleanPhone(phone))){setFormError('Enter a valid phone number with country code, for example +2348012345678.');return}
+    if(whatsapp&&!/^[0-9]{7,15}$/.test(cleanPhone(whatsapp).replace(/^\+/,''))){setFormError('Enter a valid WhatsApp number with country code, for example +2348012345678.');return}
     if(rawLat===''||rawLng===''){setFormError('Enter the shop’s actual latitude and longitude. Use your device location only if you are physically at the shop.');return}
     const lat=Number(rawLat),lng=Number(rawLng)
     if(!Number.isFinite(lat)||!Number.isFinite(lng)||lat < -90||lat>90||lng < -180||lng>180){setFormError('Enter valid latitude and longitude coordinates.');return}
     setBusy(true)
     try{
-      await dbRequest('shops',{method:'POST',account:c.account,query:'select=*',prefer:'return=representation',body:{owner_id:c.account.id,name,address,city,country,latitude:lat,longitude:lng,verification_status:'pending'}})
+      await dbRequest('shops',{method:'POST',account:c.account,query:'select=*',prefer:'return=representation',body:{owner_id:c.account.id,name,address,city,country,phone:phone?cleanPhone(phone):null,whatsapp:whatsapp?cleanPhone(whatsapp).replace(/^\+/,''):null,latitude:lat,longitude:lng,verification_status:'pending'}})
       await c.refreshSharedData();form.reset();setNotice('Shop submitted to the shared database. It is pending verification and is not yet shown as verified.')
     }catch(err){setFormError(err instanceof Error?err.message:'Could not save the shop. Please try again.')}
     finally{setBusy(false)}
@@ -252,13 +256,14 @@ function Shops(c:C){
       <label className="block text-sm font-medium">Shop name<input required name="name" className="inp mt-1" placeholder="Real shop or business name"/></label>
       <label className="block text-sm font-medium">Street address<input required name="address" className="inp mt-1" placeholder="Street address or shop location"/></label>
       <div className="grid grid-cols-2 gap-3"><label className="block text-sm font-medium">City<input required name="city" defaultValue={c.city} className="inp mt-1" placeholder="City"/></label><label className="block text-sm font-medium">Country<input required name="country" defaultValue={c.country} className="inp mt-1" placeholder="Country"/></label></div>
-      <p className="text-xs text-mute">Coordinates must be for the actual shop location. We require them to avoid pinning international shops in the wrong country.</p>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><label className="block text-sm font-medium">Phone number (with country code)<input name="phone" type="tel" className="inp mt-1" placeholder="+2348012345678" autoComplete="tel"/></label><label className="block text-sm font-medium">WhatsApp number (with country code)<input name="whatsapp" type="tel" className="inp mt-1" placeholder="+2348012345678" autoComplete="tel"/></label></div>
+      <p className="text-xs text-mute">Add only contact numbers you own or are authorized to publish. At least one contact method is recommended. Coordinates must be for the actual shop location.</p>
       <div className="grid grid-cols-2 gap-3"><label className="block text-sm font-medium">Latitude<input required name="lat" type="number" step="any" className="inp mt-1" placeholder="e.g. 6.5244"/></label><label className="block text-sm font-medium">Longitude<input required name="lng" type="number" step="any" className="inp mt-1" placeholder="e.g. 3.3792"/></label></div>
       {formError&&<p role="alert" className="rounded-lg bg-red-50 p-2 text-sm text-red-700">{formError}</p>}
       {notice&&<p role="status" className="rounded-lg bg-emerald-50 p-2 text-sm text-emerald-800">{notice}</p>}
       <button disabled={busy||!c.account} type="submit" className="btn w-full">{busy?'Saving…':'Submit shop for verification'}</button>
     </form>
-    {list.length?<ul className="grid gap-3 sm:grid-cols-2">{list.map((s:any)=><li key={s.id} className="card"><p className="font-semibold">{s.name}</p><p className="text-sm text-mute">{s.area} · {c.dist(s).toFixed(1)} km away · {s.verified?'Verified':'Pending verification'}</p><a className="btn2 mt-2 inline-block" target="_blank" rel="noreferrer" href={`https://www.openstreetmap.org/directions?from=${c.loc.lat},${c.loc.lng}&to=${s.lat},${s.lng}`}>Get directions</a></li>)}</ul>:<Empty t="No verified shops in this view yet" d="There are no built-in sample shops. Real shops will appear here after they are registered and verified."/>}
+    {list.length?<ul className="grid gap-3 sm:grid-cols-2">{list.map((s:any)=><li key={s.id} className="card"><p className="font-semibold">{s.name}</p><p className="text-sm text-mute">{s.area} · {c.dist(s).toFixed(1)} km away · {s.verified?'Verified':'Pending verification'}</p><div className="mt-3 flex flex-wrap gap-2">{s.phone&&<a className="btn2 inline-block" href={`tel:${s.phone}`}>Call shop</a>}{s.whatsapp&&<a className="btn2 inline-block" target="_blank" rel="noreferrer" href={`https://wa.me/${String(s.whatsapp).replace(/\D/g,'')}`}>WhatsApp shop</a>}<a className="btn2 inline-block" target="_blank" rel="noreferrer" href={`https://www.openstreetmap.org/directions?from=${c.loc.lat},${c.loc.lng}&to=${s.lat},${s.lng}`}>Get directions</a></div></li>)}</ul>:<Empty t="No verified shops in this view yet" d="There are no built-in sample shops. Real shops will appear here after they are registered and verified."/>}
   </div>
 }
 function Basket(c:C){
