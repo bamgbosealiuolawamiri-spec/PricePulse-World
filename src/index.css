@@ -1,10 +1,30 @@
-@tailwind base;@tailwind components;@tailwind utilities;
-@layer base{body{@apply bg-[#FFFCF8] text-ink font-sans antialiased}}
-@layer components{
-.card{@apply rounded-2xl border border-orange-100 bg-white shadow-sm p-4}
-.btn{@apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-deep focus-visible:ring-offset-2 disabled:opacity-50}
-.btn2{@apply btn bg-soft text-deep hover:bg-orange-100}
-.inp{@apply w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand}
-.chip{@apply rounded-full bg-soft px-2.5 py-0.5 text-xs font-semibold text-deep}
-.sk{@apply animate-pulse rounded-2xl bg-gray-100 h-24}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-white text-ink font-sans antialiased;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-gray-100 bg-white shadow-sm p-4;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-deep focus-visible:ring-offset-2 disabled:opacity-50;
+  }
+  .btn2 {
+    @apply btn bg-soft text-deep hover:bg-emerald-100;
+  }
+  .inp {
+    @apply w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand;
+  }
+  .chip {
+    @apply rounded-full bg-soft px-2.5 py-0.5 text-xs font-semibold text-deep;
+  }
+  .sk {
+    @apply animate-pulse rounded-2xl bg-gray-100 h-24;
+  }
 }
