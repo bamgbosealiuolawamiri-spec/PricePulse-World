@@ -349,22 +349,37 @@ function Admin(c:C){
 function Submit(c:C){
   const blank=()=>({product:'',shop:'',area:'',price:'',date:new Date().toISOString().slice(0,10),country:c.country||'',currency:c.currency||'USD'})
   const [f,setF]=useState(blank),[done,setDone]=useState(false),[err,setErr]=useState(''),[busy,setBusy]=useState(false)
+  const [photo,setPhoto]=useState<File|null>(null),[photoPreview,setPhotoPreview]=useState('')
   const set=(k:string,v:string)=>setF((old:any)=>({...old,[k]:v}))
+  useEffect(()=>{if(!photo){setPhotoPreview('');return}const url=URL.createObjectURL(photo);setPhotoPreview(url);return()=>URL.revokeObjectURL(url)},[photo])
   const submit=async(e:FormEvent)=>{
     e.preventDefault();setErr('');setDone(false)
     if(!c.account?.id){setErr('Please log in before submitting a price.');return}
     const price=Number(f.price)
     if(!f.product.trim()||!f.shop.trim()||!f.area.trim()||!f.country.trim()||!f.currency.trim()||!Number.isFinite(price)||price<=0){setErr('Enter the product, shop, location, country, currency and a price greater than zero.');return}
     if(!f.date||f.date>new Date().toISOString().slice(0,10)){setErr('Choose a valid date that is today or earlier.');return}
+    if(photo&&(!['image/jpeg','image/png','image/webp'].includes(photo.type)||photo.size>5*1024*1024)){setErr('Choose a JPG, PNG or WebP image under 5 MB.');return}
     setBusy(true)
     try{
-      await dbRequest('price_reports',{method:'POST',account:c.account,query:'select=*',prefer:'return=representation',body:{submitted_by:c.account.id,product_name:f.product.trim(),shop_id:null,shop_name:f.shop.trim(),location:f.area.trim(),country:f.country.trim(),currency_code:f.currency,price,date_seen:f.date,verification_status:'pending'}})
-      await c.refreshSharedData();setDone(true);setF(blank())
+      let imageUrl:string|null=null
+      if(photo){
+        const supabaseUrl=(import.meta.env.VITE_SUPABASE_URL||'').replace(/\/$/,'')
+        const anonKey=import.meta.env.VITE_SUPABASE_ANON_KEY||''
+        if(!supabaseUrl||!anonKey||!c.account.access_token)throw new Error('Please log in again before uploading a photo.')
+        const safeName=photo.name.toLowerCase().replace(/[^a-z0-9._-]+/g,'-').slice(-90)||'price-photo'
+        const objectPath=`${c.account.id}/${Date.now()}-${safeName}`
+        const upload=await fetch(`${supabaseUrl}/storage/v1/object/price-report-images/${objectPath}`,{method:'POST',headers:{apikey:anonKey,Authorization:`Bearer ${c.account.access_token}`,'Content-Type':photo.type,'x-upsert':'false'},body:photo})
+        const uploadData=await upload.json().catch(()=>({}))
+        if(!upload.ok)throw new Error(uploadData.message||uploadData.error||'Photo upload failed. Please try again.')
+        imageUrl=`${supabaseUrl}/storage/v1/object/public/price-report-images/${objectPath.split('/').map(encodeURIComponent).join('/')}`
+      }
+      await dbRequest('price_reports',{method:'POST',account:c.account,query:'select=*',prefer:'return=representation',body:{submitted_by:c.account.id,product_name:f.product.trim(),shop_id:null,shop_name:f.shop.trim(),location:f.area.trim(),country:f.country.trim(),currency_code:f.currency,price,date_seen:f.date,verification_status:'pending',...(imageUrl?{image_url:imageUrl}:{})}})
+      await c.refreshSharedData();setDone(true);setF(blank());setPhoto(null)
     }catch(e){setErr(e instanceof Error?e.message:'Could not save the price report. Please try again.')}
     finally{setBusy(false)}
   }
   return <div className="mx-auto max-w-xl space-y-4"><h1 className="text-2xl font-extrabold">Submit a real price</h1>
-    <p className="text-sm text-mute">Report the price you actually saw in a shop anywhere in the world. Reports are stored in the shared database and remain pending until reviewed.</p>
+    <p className="text-sm text-mute">Report the price you actually saw in a shop anywhere in the world. Add a clear photo of the product or price label as evidence. Reports remain pending until reviewed.</p>
     {!c.account&&<p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Log in first to submit a price report.</p>}
     {done&&<p role="status" className="rounded-xl bg-soft p-3 text-sm text-deep">Your price report was saved to the shared database and is pending verification.</p>}
     {err&&<p role="alert" className="text-sm text-red-600">{err}</p>}
@@ -375,7 +390,8 @@ function Submit(c:C){
       <div className="grid grid-cols-2 gap-3"><label className="block text-sm font-medium">Country<input required className="inp mt-1" value={f.country} onChange={e=>set('country',e.target.value)} placeholder="Country"/></label><label className="block text-sm font-medium">Currency<select required className="inp mt-1" value={f.currency} onChange={e=>set('currency',e.target.value)}>{['NGN','GHS','KES','ZAR','GBP','USD','CAD','EUR','INR','AUD','Other'].map(code=><option key={code} value={code}>{code}</option>)}</select></label></div>
       <label className="block text-sm font-medium">Price<input required min="0.01" step="0.01" inputMode="decimal" className="inp mt-1" type="number" value={f.price} onChange={e=>set('price',e.target.value)} placeholder="Actual shelf or checkout price"/></label>
       <label className="block text-sm font-medium">Date seen<input required className="inp mt-1" type="date" max={new Date().toISOString().slice(0,10)} value={f.date} onChange={e=>set('date',e.target.value)}/></label>
-      <button disabled={busy||!c.account} type="submit" className="btn w-full">{busy?'Submitting…':'Submit price report'}</button>
+      <div className="space-y-2"><label htmlFor="price-report-photo" className="block text-sm font-semibold">Product / price photo <span className="font-normal text-slate-500">(optional)</span></label><input id="price-report-photo" type="file" accept="image/jpeg,image/png,image/webp" disabled={busy||!c.account} onChange={e=>setPhoto(e.target.files?.[0]||null)} className="block w-full rounded-xl border border-slate-200 bg-white p-3 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-50 file:px-3 file:py-2 file:font-semibold file:text-emerald-800"/><p className="text-xs text-slate-500">JPG, PNG or WebP · max 5 MB. Avoid photos showing faces or private information.</p>{photoPreview&&<div className="space-y-2"><img src={photoPreview} alt="Preview of selected product or price photo" className="max-h-64 w-full rounded-xl border border-slate-200 object-contain"/><button type="button" className="btn2" disabled={busy} onClick={()=>{setPhoto(null);const input=document.getElementById('price-report-photo') as HTMLInputElement|null;if(input)input.value=''}}>Remove photo</button></div>}</div>
+      <button disabled={busy||!c.account} type="submit" className="btn w-full">{busy?'Uploading and submitting…':'Submit price report'}</button>
     </form>
     {c.subs.length>0&&<section><h2 className="mb-2 font-bold">Shared price reports</h2><ul className="space-y-2">{c.subs.map((r:any)=><li key={r.id} className="card text-sm"><p className="font-semibold">{r.product}</p><p>{money(Number(r.price),r.currency||'USD')} · {r.shop}, {r.area} · {r.date}</p><p className="mt-1 text-xs text-amber-800">{r.status}</p></li>)}</ul></section>}
   </div>
