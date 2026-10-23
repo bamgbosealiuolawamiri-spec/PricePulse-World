@@ -614,7 +614,7 @@ function ShopVerification({account,shops}:any){
   const load=async()=>{
     if(!account?.id)return
     try{
-      const rows=await dbRequest<any[]>('shop_verification_applications',{account,query:'select=id,shop_id,plan,status,monthly_price_ngn,created_at&applicant_id=eq.'+encodeURIComponent(account.id)+'&order=created_at.desc'})
+      const rows=await dbRequest<any[]>('shop_verification_applications',{account,query:'select=id,shop_id,status,created_at&applicant_id=eq.'+encodeURIComponent(account.id)+'&order=created_at.desc'})
       setApplications(rows||[])
     }catch(e){setError(e instanceof Error?e.message:'Apply the shop-connect database migration before using verification.')}
   }
