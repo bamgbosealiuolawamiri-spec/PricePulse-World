@@ -119,19 +119,16 @@ create table if not exists public.shop_verification_applications (
   id uuid primary key default gen_random_uuid(),
   shop_id uuid not null references public.shops(id) on delete cascade,
   applicant_id uuid not null references auth.users(id) on delete cascade,
-  plan text not null default 'verified'
-    check (plan in ('verified', 'premium')),
   status text not null default 'pending'
-    check (status in ('pending', 'approved', 'rejected', 'payment_pending')),
-  monthly_price_ngn integer not null
-    check (monthly_price_ngn in (2000, 5000)),
+    check (status in ('pending', 'approved', 'rejected')),
   business_evidence text not null check (char_length(btrim(business_evidence)) between 10 and 2000),
-  payment_reference text,
   reviewed_at timestamptz,
-  created_at timestamptz not null default now(),
-  constraint shop_verification_application_once_pending
-    unique (shop_id, applicant_id, status)
+  created_at timestamptz not null default now()
 );
+
+create unique index if not exists shop_verification_one_pending_application_idx
+  on public.shop_verification_applications (shop_id, applicant_id)
+  where status = 'pending';
 
 create index if not exists shop_verification_applications_review_idx
   on public.shop_verification_applications (status, created_at asc);
