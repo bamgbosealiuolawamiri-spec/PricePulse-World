@@ -21,6 +21,7 @@ on:
       - "package-lock.json"
       - "tsconfig.json"
       - "vite.config.*"
+      - "supabase/**"
       - ".github/workflows/validate.yml"
 
 jobs:
