@@ -113,11 +113,6 @@ export default function App(){
       {!['','search','p','shops','basket','saved','submit','admin','auth'].includes(route)&&<Empty t="Page not found" d="That page doesn't exist."/>}
     </main>
     <footer className="border-t bg-soft px-4 py-6 text-center text-xs text-mute">
-      <section className="mx-auto mb-5 max-w-2xl rounded-2xl border border-emerald-100 bg-white px-5 py-4 text-left shadow-sm" aria-labelledby="footer-android-download-title">
-        <h2 id="footer-android-download-title" className="text-base font-extrabold text-slate-900">Download PricePulse World for Android</h2>
-        <p className="mt-1 text-sm leading-6 text-slate-600">Free early test build. This debug APK is for testing only and is not a final production release.</p>
-        <a className="btn mt-3 inline-flex" href="https://github.com/bamgbosealiuolawamiri-spec/PricePulse-World/releases/download/android-download/app-debug.apk">Download Android APK ↓</a>
-      </section>
       <section className="mx-auto mb-4 max-w-2xl rounded-2xl border border-emerald-100 bg-white px-5 py-4 text-left shadow-sm" aria-labelledby="creator-credit-title">
         <p className="text-[11px] font-bold uppercase tracking-[.16em] text-emerald-700">About the creator</p>
         <h2 id="creator-credit-title" className="mt-1 text-base font-extrabold text-slate-900">Created by Bamgbose Aliu Olawamiri</h2>
@@ -152,11 +147,6 @@ function EntryChoice({onChoose}:{onChoose:(role:'customer'|'shop-owner'|'guest')
           <p className="mt-2 flex-1 text-sm leading-6 text-slate-600">{choice.description}</p>
           <button className="btn mt-6 w-full" onClick={()=>onChoose(choice.role)}>{choice.action}<span aria-hidden="true">→</span></button>
         </article>)}
-      </section>
-      <section className="mx-auto mt-7 max-w-xl rounded-2xl border border-emerald-100 bg-white p-5 text-center shadow-sm" aria-labelledby="android-download-title">
-        <h2 id="android-download-title" className="text-lg font-extrabold text-slate-950">Get PricePulse World for Android</h2>
-        <p className="mt-2 text-sm leading-6 text-slate-600">Download our early Android test build at no cost. This is a debug/testing APK, not a final production release, and Android may show a security warning during installation.</p>
-        <a className="btn mt-4 inline-flex items-center justify-center gap-2" href="https://github.com/bamgbosealiuolawamiri-spec/PricePulse-World/releases/download/android-download/app-debug.apk">Download Android APK <span aria-hidden="true">↓</span></a>
       </section>
             <p className="mx-auto mt-7 max-w-2xl text-center text-xs leading-5 text-slate-500">You can change your role later. Shop registrations and price reports may require an account, and submitted listings are reviewed before being marked as verified or approved.</p>
     </div>
@@ -193,8 +183,9 @@ function Home({q,setQ,...c}:C){
           <form className="mt-7 flex flex-col gap-2 rounded-2xl bg-white p-2 shadow-lg sm:flex-row" role="search" onSubmit={e=>{e.preventDefault();go('/search?q='+encodeURIComponent(q))}}>
             <span className="hidden items-center pl-3 text-xl text-slate-400 sm:flex" aria-hidden="true">⌕</span>
             <input aria-label="Search products" className="min-w-0 flex-1 border-0 px-3 py-3 text-sm text-[#1F2937] outline-none ring-0 placeholder:text-slate-400 focus:ring-0" placeholder="What do you want to price-check?" value={q} onChange={e=>setQ(e.target.value)}/>
-            <button className="rounded-xl bg-emerald-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-emerald-700">Find prices <span aria-hidden="true">→</span></button>
+            <button className="rounded-xl bg-slate-100 px-6 py-3 text-sm font-bold text-[#064E3B] transition hover:bg-slate-200">Search prices <span aria-hidden="true">→</span></button>
           </form>
+          <a className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-400 px-6 py-3.5 text-sm font-extrabold text-[#063D2C] shadow-lg transition hover:bg-emerald-300" href="https://github.com/bamgbosealiuolawamiri-spec/PricePulse-World/releases/download/android-download/app-debug.apk">Download the App <span aria-hidden="true">↓</span></a>
           <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs text-slate-300"><span>✓ Community submitted</span><span>✓ Verification first</span><span>✓ Starting in Lagos</span></div>
         </div>
         <div className="mx-auto w-full max-w-sm">
