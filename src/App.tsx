@@ -341,6 +341,7 @@ function Admin(c:C){
   const [error,setError]=useState('')
   const [pendingShops,setPendingShops]=useState<any[]>([])
   const [pendingPrices,setPendingPrices]=useState<any[]>([])
+  const [pendingApplications,setPendingApplications]=useState<any[]>([])
   const [busyId,setBusyId]=useState('')
   const [notice,setNotice]=useState('')
 
@@ -349,13 +350,14 @@ function Admin(c:C){
     setChecking(true);setError('')
     try{
       const result=await dbRequest<boolean>('rpc/is_pricepulse_admin',{method:'POST',account:c.account,body:{}})
-      if(result!==true){setIsAdmin(false);setPendingShops([]);setPendingPrices([]);return}
+      if(result!==true){setIsAdmin(false);setPendingShops([]);setPendingPrices([]);setPendingApplications([]);return}
       setIsAdmin(true)
-      const [shops,prices]=await Promise.all([
+      const [shops,prices,applications]=await Promise.all([
         dbRequest<any[]>('shops',{account:c.account,query:'select=id,name,address,city,country,verification_status,created_at&verification_status=eq.pending&order=created_at.asc'}),
-        dbRequest<any[]>('price_reports',{account:c.account,query:'select=id,product_name,shop_name,location,country,currency_code,price,date_seen,verification_status,created_at&verification_status=eq.pending&order=created_at.asc'})
+        dbRequest<any[]>('price_reports',{account:c.account,query:'select=id,product_name,shop_name,location,country,currency_code,price,date_seen,verification_status,created_at&verification_status=eq.pending&order=created_at.asc'}),
+        dbRequest<any[]>('shop_verification_applications',{account:c.account,query:'select=id,shop_id,applicant_id,plan,status,monthly_price_ngn,business_evidence,created_at,shop:shops(name,address,city,country)&status=eq.pending&order=created_at.asc'})
       ])
-      setPendingShops(shops||[]);setPendingPrices(prices||[])
+      setPendingShops(shops||[]);setPendingPrices(prices||[]);setPendingApplications(applications||[])
     }catch(e){
       setError(e instanceof Error?e.message:'Could not load administrator review queue.')
     }finally{setChecking(false)}
@@ -375,6 +377,18 @@ function Admin(c:C){
     finally{setBusyId('')}
   }
 
+
+  const reviewApplication=async(id:string,approved:boolean)=>{
+    if(!c.account||!isAdmin)return
+    setBusyId(id);setError('');setNotice('')
+    try{
+      await dbRequest('shop_verification_applications',{method:'PATCH',account:c.account,query:`id=eq.${encodeURIComponent(id)}&select=id`,prefer:'return=representation',body:{status:approved?'approved':'rejected',reviewed_at:new Date().toISOString()}})
+      setNotice(approved?'Shop verification application approved. The shop is now marked verified.':'Shop verification application rejected.')
+      await Promise.all([loadReviewQueue(),c.refreshSharedData()])
+    }catch(e){setError(e instanceof Error?e.message:'Could not review this shop verification application.')}
+    finally{setBusyId('')}
+  }
+
   if(checking)return <div className="mx-auto max-w-2xl space-y-3"><h1 className="text-2xl font-extrabold">Administrator review</h1><p className="text-sm text-mute">Checking secure administrator permissions…</p></div>
   if(!c.account)return <div className="mx-auto max-w-2xl space-y-3"><h1 className="text-2xl font-extrabold">Administrator review</h1><div className="rounded-xl bg-amber-50 p-4 text-sm text-amber-950">Please log in with your authorized administrator account to review submissions.</div><a className="btn inline-block" href="#/auth">Log in</a></div>
   if(!isAdmin)return <div className="mx-auto max-w-2xl space-y-4"><h1 className="text-2xl font-extrabold">Secure verification</h1><div className="rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-950"><b>This account does not have administrator approval permissions.</b> Only accounts explicitly authorized in Supabase can review shops and price reports.</div>{error&&<p role="alert" className="text-sm text-red-700">{error}</p>}<button className="btn2" onClick={()=>void loadReviewQueue()}>Check permissions again</button></div>
@@ -386,6 +400,17 @@ function Admin(c:C){
     <section className="space-y-3"><h2 className="font-bold">Pending shops ({pendingShops.length})</h2>
       {!pendingShops.length&&<p className="rounded-xl bg-soft p-4 text-sm text-mute">No pending shops to review.</p>}
       {pendingShops.map((s:any)=><article key={s.id} className="card space-y-2"><h3 className="font-semibold">{s.name}</h3><p className="text-sm text-mute">{s.address}, {s.city}, {s.country}</p><div className="flex flex-wrap gap-2"><button disabled={!!busyId} className="btn" onClick={()=>void review('shop',s.id,true)}>{busyId===s.id?'Saving…':'Approve shop'}</button><button disabled={!!busyId} className="btn2" onClick={()=>void review('shop',s.id,false)}>Reject</button></div></article>)}
+    </section>
+    <section className="space-y-3"><h2 className="font-bold">Shop verification applications ({pendingApplications.length})</h2>
+      {!pendingApplications.length&&<p className="rounded-xl bg-soft p-4 text-sm text-mute">No pending shop verification applications.</p>}
+      {pendingApplications.map((a:any)=><article key={a.id} className="card space-y-2">
+        <h3 className="font-semibold">{a.shop?.name||'Shop verification request'}</h3>
+        <p className="text-sm text-mute">{[a.shop?.address,a.shop?.city,a.shop?.country].filter(Boolean).join(', ')||'Shop details unavailable'}</p>
+        <p className="text-sm">Plan: {a.plan==='premium'?'Premium':'Verified'} · Planned price: ₦{Number(a.monthly_price_ngn).toLocaleString()}/month · Payment is postponed; review is free.</p>
+        <p className="whitespace-pre-wrap break-words text-sm">{a.business_evidence}</p>
+        <p className="text-xs text-mute">Submitted {new Date(a.created_at).toLocaleString()}</p>
+        <div className="flex flex-wrap gap-2"><button disabled={!!busyId} className="btn" onClick={()=>void reviewApplication(a.id,true)}>{busyId===a.id?'Saving…':'Approve verification'}</button><button disabled={!!busyId} className="btn2" onClick={()=>void reviewApplication(a.id,false)}>Reject application</button></div>
+      </article>)}
     </section>
     <section className="space-y-3"><h2 className="font-bold">Pending price reports ({pendingPrices.length})</h2>
       {!pendingPrices.length&&<p className="rounded-xl bg-soft p-4 text-sm text-mute">No pending price reports to review.</p>}
