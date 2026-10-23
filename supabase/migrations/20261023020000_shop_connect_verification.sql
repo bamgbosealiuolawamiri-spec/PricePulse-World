@@ -62,7 +62,7 @@ create or replace function public.can_send_shop_message(
 language plpgsql
 security definer
 set search_path = pg_catalog, public
-as $
+as $$
 declare
   v_owner_id uuid;
 begin
@@ -97,7 +97,7 @@ begin
 
   return false;
 end;
-$;
+$$;
 
 revoke all on function public.can_send_shop_message(uuid, uuid, uuid) from public, anon;
 grant execute on function public.can_send_shop_message(uuid, uuid, uuid) to authenticated;
