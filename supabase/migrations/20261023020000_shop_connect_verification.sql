@@ -155,11 +155,7 @@ create policy "Shop owners can apply for verification"
       select 1 from public.shops s
       where s.id = shop_id and s.owner_id = auth.uid()
     )
-    and (
-      (plan = 'verified' and monthly_price_ngn = 2000)
-      or (plan = 'premium' and monthly_price_ngn = 5000)
-    )
-    and status in ('pending', 'payment_pending')
+    and status = 'pending'
   );
 
 -- Deliberately no client UPDATE policy: only a trusted, server-side administrator
