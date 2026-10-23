@@ -113,6 +113,11 @@ export default function App(){
       {!['','search','p','shops','basket','saved','submit','admin','auth'].includes(route)&&<Empty t="Page not found" d="That page doesn't exist."/>}
     </main>
     <footer className="border-t bg-soft px-4 py-6 text-center text-xs text-mute">
+      <section className="mx-auto mb-5 max-w-2xl rounded-2xl border border-emerald-100 bg-white px-5 py-4 text-left shadow-sm" aria-labelledby="footer-android-download-title">
+        <h2 id="footer-android-download-title" className="text-base font-extrabold text-slate-900">Download PricePulse World for Android</h2>
+        <p className="mt-1 text-sm leading-6 text-slate-600">Free early test build. This debug APK is for testing only and is not a final production release.</p>
+        <a className="btn mt-3 inline-flex" href="https://github.com/bamgbosealiuolawamiri-spec/PricePulse-World/releases/download/android-download/app-debug.apk">Download Android APK ↓</a>
+      </section>
       <section className="mx-auto mb-4 max-w-2xl rounded-2xl border border-emerald-100 bg-white px-5 py-4 text-left shadow-sm" aria-labelledby="creator-credit-title">
         <p className="text-[11px] font-bold uppercase tracking-[.16em] text-emerald-700">About the creator</p>
         <h2 id="creator-credit-title" className="mt-1 text-base font-extrabold text-slate-900">Created by Bamgbose Aliu Olawamiri</h2>
@@ -148,7 +153,12 @@ function EntryChoice({onChoose}:{onChoose:(role:'customer'|'shop-owner'|'guest')
           <button className="btn mt-6 w-full" onClick={()=>onChoose(choice.role)}>{choice.action}<span aria-hidden="true">→</span></button>
         </article>)}
       </section>
-      <p className="mx-auto mt-7 max-w-2xl text-center text-xs leading-5 text-slate-500">You can change your role later. Shop registrations and price reports may require an account, and submitted listings are reviewed before being marked as verified or approved.</p>
+      <section className="mx-auto mt-7 max-w-xl rounded-2xl border border-emerald-100 bg-white p-5 text-center shadow-sm" aria-labelledby="android-download-title">
+        <h2 id="android-download-title" className="text-lg font-extrabold text-slate-950">Get PricePulse World for Android</h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600">Download our early Android test build at no cost. This is a debug/testing APK, not a final production release, and Android may show a security warning during installation.</p>
+        <a className="btn mt-4 inline-flex items-center justify-center gap-2" href="https://github.com/bamgbosealiuolawamiri-spec/PricePulse-World/releases/download/android-download/app-debug.apk">Download Android APK <span aria-hidden="true">↓</span></a>
+      </section>
+            <p className="mx-auto mt-7 max-w-2xl text-center text-xs leading-5 text-slate-500">You can change your role later. Shop registrations and price reports may require an account, and submitted listings are reviewed before being marked as verified or approved.</p>
     </div>
   </main>
 }
