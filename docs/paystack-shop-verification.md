@@ -1,5 +1,7 @@
 # PricePulse World shop verification payments
 
+> **Current status (2026-10-23): Payments are postponed.** The shop verification screen now accepts free applications and does not call the Paystack function. Do not configure secrets, deploy this payment function, or enable checkout until the project owner has an authorized payment account and explicitly chooses to turn payments on. Manual review remains required for every badge.
+
 This integration uses Paystack-hosted checkout. The Paystack secret key is used only inside a Supabase Edge Function; it must never be placed in Vite variables, React code, or Git.
 
 ## What it does
