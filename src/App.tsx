@@ -264,7 +264,7 @@ function Shops(c:C){
   const list=[...c.shops].sort((a:any,b:any)=>c.dist(a)-c.dist(b))
   const [shopFollows,setShopFollows]=useState<any[]>([])
   const [followError,setFollowError]=useState('')
-  useEffect(()=>{let active=true;dbRequest<any[]>('shop_follows',{account:c.account,query:'select=shop_id,follower_id&limit=1000'}).then(rows=>{if(active)setShopFollows(rows||[])}).catch(e=>{if(active)setFollowError(e instanceof Error?e.message:'Shop follows are not available yet.')});return()=>{active=false}},[c.account?.id,c.shops.length])
+  useEffect(()=>{let active=true;if(!c.account?.id){setShopFollows([]);setFollowError('');return()=>{active=false}}dbRequest<any[]>('shop_follows',{account:c.account,query:'select=shop_id,follower_id&limit=1000'}).then(rows=>{if(active)setShopFollows(rows||[])}).catch(e=>{if(active)setFollowError(e instanceof Error?e.message:'Shop follows are not available yet.')});return()=>{active=false}},[c.account?.id,c.shops.length])
   const toggleShopFollow=async(shopId:string)=>{
     if(!c.account?.id){setFollowError('Log in to follow shops.');return}
     setFollowError('')
@@ -312,7 +312,7 @@ function Shops(c:C){
       {notice&&<p role="status" className="rounded-lg bg-emerald-50 p-2 text-sm text-emerald-800">{notice}</p>}
       <button disabled={busy||!c.account} type="submit" className="btn w-full">{busy?'Saving…':'Submit shop for verification'}</button>
     </form>
-    {list.length?<ul className="grid gap-3 sm:grid-cols-2">{list.map((s:any)=><li key={s.id} className="card"><p className="flex flex-wrap items-center gap-2 font-semibold">{s.name}{s.verified&&<VerifiedBadge/>}</p><p className="text-sm text-mute">{s.area} · {c.dist(s).toFixed(1)} km away · {s.verified?'Verified':'Pending verification'}</p><p className="mt-2 text-xs text-slate-500">{shopFollows.filter((r:any)=>r.shop_id===s.id).length} followers</p><div className="mt-3 flex flex-wrap gap-2"><button className="btn2 inline-block" disabled={!c.account} onClick={()=>void toggleShopFollow(s.id)}>{shopFollows.some((r:any)=>r.shop_id===s.id&&r.follower_id===c.account?.id)?'Following':'Follow shop'}</button>{s.owner_id&&s.owner_id!==c.account?.id&&<a className="btn2 inline-block" href={`#/messages?shop=${encodeURIComponent(s.id)}`}>Message shop</a>}{s.verified&&s.phone&&<a className="btn2 inline-block" href={`tel:${s.phone}`}>Call shop</a>}{s.verified&&s.whatsapp&&<a className="btn2 inline-block" target="_blank" rel="noreferrer" href={`https://wa.me/${String(s.whatsapp).replace(/\D/g,'')}`}>WhatsApp shop</a>}<a className="btn2 inline-block" target="_blank" rel="noreferrer" href={`https://www.openstreetmap.org/directions?from=${c.loc.lat},${c.loc.lng}&to=${s.lat},${s.lng}`}>Get directions</a></div></li>)}</ul>:<Empty t="No verified shops in this view yet" d="There are no built-in sample shops. Real shops will appear here after they are registered and verified."/>}
+    {list.length?<ul className="grid gap-3 sm:grid-cols-2">{list.map((s:any)=><li key={s.id} className="card"><p className="flex flex-wrap items-center gap-2 font-semibold">{s.name}{s.verified&&<VerifiedBadge/>}</p><p className="text-sm text-mute">{s.area} · {c.dist(s).toFixed(1)} km away · {s.verified?'Verified':'Pending verification'}</p><div className="mt-3 flex flex-wrap gap-2"><button className="btn2 inline-block" disabled={!c.account} onClick={()=>void toggleShopFollow(s.id)}>{shopFollows.some((r:any)=>r.shop_id===s.id&&r.follower_id===c.account?.id)?'Following':'Follow shop'}</button>{s.owner_id&&s.owner_id!==c.account?.id&&<a className="btn2 inline-block" href={`#/messages?shop=${encodeURIComponent(s.id)}`}>Message shop</a>}{s.verified&&s.phone&&<a className="btn2 inline-block" href={`tel:${s.phone}`}>Call shop</a>}{s.verified&&s.whatsapp&&<a className="btn2 inline-block" target="_blank" rel="noreferrer" href={`https://wa.me/${String(s.whatsapp).replace(/\D/g,'')}`}>WhatsApp shop</a>}<a className="btn2 inline-block" target="_blank" rel="noreferrer" href={`https://www.openstreetmap.org/directions?from=${c.loc.lat},${c.loc.lng}&to=${s.lat},${s.lng}`}>Get directions</a></div></li>)}</ul>:<Empty t="No verified shops in this view yet" d="There are no built-in sample shops. Real shops will appear here after they are registered and verified."/>}
   </div>
 }
 function Basket(c:C){
@@ -605,7 +605,6 @@ function Messages({account,shops}:any){
 function ShopVerification({account,shops}:any){
   const owned=(shops||[]).filter((s:any)=>s.owner_id===account?.id)
   const [shopId,setShopId]=useState('')
-  const [plan,setPlan]=useState<'verified'|'premium'>('verified')
   const [evidence,setEvidence]=useState('')
   const [applications,setApplications]=useState<any[]>([])
   const [error,setError]=useState('')
@@ -629,7 +628,7 @@ function ShopVerification({account,shops}:any){
     if(!shop){setError('Choose a shop registered to your account.');return}
     setBusy(true)
     try{
-      await dbRequest<any[]>('shop_verification_applications',{method:'POST',account,query:'select=id',prefer:'return=representation',body:{shop_id:shopId,applicant_id:account.id,plan,monthly_price_ngn:plan==='verified'?2000:5000,business_evidence:evidence.trim(),status:'pending'}})
+      await dbRequest<any[]>('shop_verification_applications',{method:'POST',account,query:'select=id',prefer:'return=representation',body:{shop_id:shopId,applicant_id:account.id,plan:'verified',monthly_price_ngn:2000,business_evidence:evidence.trim(),status:'pending'}})
       setEvidence('')
       await load()
       setNotice('Your application was submitted successfully. It is pending manual review. No payment is collected at this time.')
@@ -640,18 +639,17 @@ function ShopVerification({account,shops}:any){
   if(!account?.id)return <Empty t="Log in as a shop owner" d="You need a shop owner account to apply for verification."/>
   return <div className="mx-auto max-w-2xl space-y-4">
     <header><p className="text-xs font-extrabold uppercase tracking-[.16em] text-blue-700">Shop trust</p><h1 className="mt-1 text-3xl font-black">Get your shop verified <VerifiedBadge/></h1><p className="mt-2 text-sm leading-6 text-mute">Apply for shop verification for free while PricePulse World is getting started. Every application is reviewed manually; submitting an application does not guarantee a blue badge.</p></header>
-    <div className="grid gap-3 sm:grid-cols-2"><article className="card"><p className="font-bold">🔵 Verified Shop</p><p className="mt-1 text-2xl font-black">₦2,000<span className="text-sm font-medium text-mute"> / month</span></p><p className="mt-2 text-sm text-mute">Planned price · applications are currently free.</p></article><article className="card"><p className="font-bold">⭐ Premium Shop</p><p className="mt-1 text-2xl font-black">₦5,000<span className="text-sm font-medium text-mute"> / month</span></p><p className="mt-2 text-sm text-mute">Planned price · applications are currently free.</p></article></div>
+    <section className="card"><p className="font-bold">Free manual review</p><p className="mt-1 text-sm text-mute">There is no paid plan or checkout enabled. Your shop will receive a verification badge only if the administrator approves your application.</p></section>
     <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">Payments are disabled for now. You will not be asked to pay. Pricing and payment will be introduced only when the payment system is ready.</p>
     {error&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
     {notice&&<p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
     {!owned.length?<Empty t="Register your shop first" d="Once your real shop is submitted under your account, you can apply for verification."/>:<form className="card space-y-3" onSubmit={submit}>
       <label className="block text-sm font-semibold">Your shop<select className="inp mt-1" required value={shopId} onChange={e=>setShopId(e.target.value)}><option value="">Choose a shop</option>{owned.map((s:any)=><option key={s.id} value={s.id}>{s.name} — {s.area}</option>)}</select></label>
-      <label className="block text-sm font-semibold">Plan<select className="inp mt-1" value={plan} onChange={e=>setPlan(e.target.value as 'verified'|'premium')}><option value="verified">Verified Shop — planned ₦2,000/month</option><option value="premium">Premium Shop — planned ₦5,000/month</option></select></label>
       <label className="block text-sm font-semibold">Business evidence<textarea className="inp mt-1 min-h-24" required minLength={10} maxLength={2000} value={evidence} onChange={e=>setEvidence(e.target.value)} placeholder="Describe the documents or evidence you can provide to show you own or manage this shop."/></label>
       <p className="text-xs text-mute">Provide accurate business information. Your application will be reviewed manually, and no payment is required.</p>
       <button className="btn w-full" disabled={busy}>{busy?'Submitting application…':'Submit free application'}</button>
     </form>}
-    {applications.length>0&&<section className="space-y-2"><h2 className="font-bold">Your applications</h2>{applications.map((a:any)=><article key={a.id} className="card text-sm"><p className="font-semibold">{owned.find((s:any)=>s.id===a.shop_id)?.name||'Shop'} · {a.plan==='premium'?'Premium':'Verified Shop'}</p><p className="mt-1">Planned price: ₦{Number(a.monthly_price_ngn).toLocaleString()} / month · {String(a.status).replace('_',' ')}</p><p className="mt-1 text-xs text-mute">No payment has been collected. Submitted {new Date(a.created_at).toLocaleDateString()}. A blue badge is added only after manual approval.</p></article>)}</section>}
+    {applications.length>0&&<section className="space-y-2"><h2 className="font-bold">Your applications</h2>{applications.map((a:any)=><article key={a.id} className="card text-sm"><p className="font-semibold">{owned.find((s:any)=>s.id===a.shop_id)?.name||'Shop'} · Free verification review</p><p className="mt-1">Status: {String(a.status).replace('_',' ')}</p><p className="mt-1 text-xs text-mute">No payment is required or collected. Submitted {new Date(a.created_at).toLocaleDateString()}. A blue badge is added only after manual approval.</p></article>)}</section>}
   </div>
 }
 function Submit(c:C){
