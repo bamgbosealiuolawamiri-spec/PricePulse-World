@@ -79,7 +79,7 @@ export default function App(){
   const dist=(s:{lat:number;lng:number})=>km(loc,s)
   const ctx={loc,saved,toggleSave,alerts,setAlerts,basket,setBasket,subs,setSubs,shops,setShops,dist,account,country,setCountry,city,setCity,currency,setCurrency,refreshSharedData}
 
-  const links=[['','Home'],['search','Search'],['shops','Shops'],['basket','Basket'],['saved','Saved'],['submit','Submit price'],['admin','Admin'],['auth',account?'Account':'Log in']]
+  const links=[['','Home'],['community','Community'],['search','Search'],['shops','Shops'],['basket','Basket'],['saved','Saved'],['submit','Submit price'],['admin','Admin'],['auth',account?'Account':'Log in']]
   const chooseRole=(role:'customer'|'shop-owner'|'guest')=>{setEntryRole(role);location.hash=role==='shop-owner'?(account?'#/shops':'#/auth?mode=signup'):'#/'}
   if(!entryRole&&!recoveryLink)return <EntryChoice onChoose={chooseRole}/>
   return <div className="min-h-screen flex flex-col">
@@ -103,6 +103,7 @@ export default function App(){
       {dataError&&<p role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">Shared data could not load: {dataError}</p>}
       {route===''&&<Home q={q} setQ={setQ} {...ctx}/>}
       {route==='auth'&&<AuthPage mode={hash.includes('mode=signup')?'signup':'login'} account={account} setAccount={setAccount}/>}
+      {route==='community'&&<Community {...ctx}/>}
       {route==='search'&&<Search {...ctx} q={new URLSearchParams(hash.includes('?')?hash.slice(hash.indexOf('?')+1):'').get('q')||''} cat={new URLSearchParams(hash.includes('?')?hash.slice(hash.indexOf('?')+1):'').get('cat')||''}/>}
       {route==='p'&&<Detail id={arg} {...ctx}/>}
       {route==='shops'&&<Shops {...ctx}/>}
@@ -110,7 +111,7 @@ export default function App(){
       {route==='saved'&&<Saved {...ctx}/>}
       {route==='submit'&&<Submit {...ctx}/>}
       {route==='admin'&&<Admin {...ctx}/>}
-      {!['','search','p','shops','basket','saved','submit','admin','auth'].includes(route)&&<Empty t="Page not found" d="That page doesn't exist."/>}
+      {!['','community','search','p','shops','basket','saved','submit','admin','auth'].includes(route)&&<Empty t="Page not found" d="That page doesn't exist."/>}
     </main>
     <footer className="border-t bg-soft px-4 py-6 text-center text-xs text-mute">
       <section className="mx-auto mb-4 max-w-2xl rounded-2xl border border-emerald-100 bg-white px-5 py-4 text-left shadow-sm" aria-labelledby="creator-credit-title">
@@ -375,6 +376,134 @@ function Admin(c:C){
       {!pendingPrices.length&&<p className="rounded-xl bg-soft p-4 text-sm text-mute">No pending price reports to review.</p>}
       {pendingPrices.map((p:any)=><article key={p.id} className="card space-y-2"><h3 className="font-semibold">{p.product_name}</h3><p className="text-sm">{p.currency_code} {Number(p.price).toLocaleString()} · {p.shop_name}</p><p className="text-sm text-mute">{p.location}, {p.country} · Seen {p.date_seen}</p><div className="flex flex-wrap gap-2"><button disabled={!!busyId} className="btn" onClick={()=>void review('price',p.id,true)}>{busyId===p.id?'Saving…':'Approve price'}</button><button disabled={!!busyId} className="btn2" onClick={()=>void review('price',p.id,false)}>Reject</button></div></article>)}
     </section>
+  </div>
+}
+
+
+function Community(c:C){
+  const [posts,setPosts]=useState<any[]>([])
+  const [profiles,setProfiles]=useState<Record<string,any>>({})
+  const [following,setFollowing]=useState<string[]>([])
+  const [likes,setLikes]=useState<any[]>([])
+  const [comments,setComments]=useState<any[]>([])
+  const [draft,setDraft]=useState('')
+  const [commentDrafts,setCommentDrafts]=useState<Record<string,string>>({})
+  const [loading,setLoading]=useState(true)
+  const [busy,setBusy]=useState('')
+  const [error,setError]=useState('')
+  const [notice,setNotice]=useState('')
+
+  const load=async()=>{
+    setLoading(true);setError('')
+    try{
+      const postRows=await dbRequest<any[]>('community_posts',{account:c.account,query:'select=*&order=created_at.desc&limit=50'})
+      const postList=postRows||[]
+      const ids=postList.map((p:any)=>String(p.id)).filter(Boolean)
+      const userIds=[...new Set(postList.map((p:any)=>String(p.author_id)).filter(Boolean))]
+      const [followRows,likeRows,commentRows]=await Promise.all([
+        c.account?dbRequest<any[]>('user_follows',{account:c.account,query:'select=following_id&follower_id=eq.'+encodeURIComponent(c.account.id)}):Promise.resolve([]),
+        ids.length?dbRequest<any[]>('community_likes',{account:c.account,query:'select=post_id,user_id&post_id=in.('+ids.join(',')+')'}):Promise.resolve([]),
+        ids.length?dbRequest<any[]>('community_comments',{account:c.account,query:'select=*&post_id=in.('+ids.join(',')+')&order=created_at.asc&limit=200'}):Promise.resolve([])
+      ])
+      const commentUserIds=(commentRows||[]).map((x:any)=>String(x.user_id)).filter(Boolean)
+      const allUserIds=[...new Set([...userIds,...commentUserIds])]
+      let profileMap:Record<string,any>={}
+      if(allUserIds.length){
+        const profileRows=await dbRequest<any[]>('public_profiles',{account:c.account,query:'select=id,display_name,username,bio,avatar_url&id=in.('+allUserIds.join(',')+')'})
+        ;(profileRows||[]).forEach((p:any)=>{profileMap[p.id]=p})
+      }
+      setPosts(postList);setFollowing((followRows||[]).map((x:any)=>String(x.following_id)))
+      setLikes(likeRows||[]);setComments(commentRows||[]);setProfiles(profileMap)
+    }catch(e){setError(e instanceof Error?e.message:'Could not load the community.')}
+    finally{setLoading(false)}
+  }
+  useEffect(()=>{void load()},[c.account?.id,c.account?.access_token])
+
+  const createPost=async(e:FormEvent)=>{
+    e.preventDefault();setError('');setNotice('')
+    if(!c.account){setError('Please log in to publish a community post.');return}
+    const body=draft.trim()
+    if(!body){setError('Write something before posting.');return}
+    if(body.length>2000){setError('Keep posts to 2,000 characters or fewer.');return}
+    setBusy('post')
+    try{
+      await dbRequest('community_posts',{method:'POST',account:c.account,query:'select=*',prefer:'return=representation',body:{author_id:c.account.id,body}})
+      setDraft('');setNotice('Your post was published.');await load()
+    }catch(e){setError(e instanceof Error?e.message:'Could not publish your post.')}
+    finally{setBusy('')}
+  }
+  const toggleFollow=async(userId:string)=>{
+    if(!c.account){setError('Log in to follow people.');return}
+    if(userId===c.account.id)return
+    setError('');setNotice('');setBusy('follow:'+userId)
+    try{
+      if(following.includes(userId)){
+        await dbRequest('user_follows',{method:'DELETE',account:c.account,query:'follower_id=eq.'+encodeURIComponent(c.account.id)+'&following_id=eq.'+encodeURIComponent(userId)})
+        setFollowing(old=>old.filter(id=>id!==userId))
+      }else{
+        await dbRequest('user_follows',{method:'POST',account:c.account,query:'select=*',prefer:'return=minimal',body:{follower_id:c.account.id,following_id:userId}})
+        setFollowing(old=>[...old,userId])
+      }
+    }catch(e){setError(e instanceof Error?e.message:'Could not update your following list.')}
+    finally{setBusy('')}
+  }
+  const toggleLike=async(postId:string)=>{
+    if(!c.account){setError('Log in to like posts.');return}
+    const exists=likes.some((x:any)=>x.post_id===postId&&x.user_id===c.account.id)
+    setBusy('like:'+postId);setError('')
+    try{
+      if(exists){
+        await dbRequest('community_likes',{method:'DELETE',account:c.account,query:'post_id=eq.'+encodeURIComponent(postId)+'&user_id=eq.'+encodeURIComponent(c.account.id)})
+        setLikes(old=>old.filter((x:any)=>!(x.post_id===postId&&x.user_id===c.account.id)))
+      }else{
+        await dbRequest('community_likes',{method:'POST',account:c.account,query:'select=*',prefer:'return=minimal',body:{post_id:postId,user_id:c.account.id}})
+        setLikes(old=>[...old,{post_id:postId,user_id:c.account.id}])
+      }
+    }catch(e){setError(e instanceof Error?e.message:'Could not update like.')}
+    finally{setBusy('')}
+  }
+  const addComment=async(e:FormEvent,postId:string)=>{
+    e.preventDefault()
+    if(!c.account){setError('Log in to comment.');return}
+    const body=(commentDrafts[postId]||'').trim()
+    if(!body)return
+    if(body.length>1000){setError('Keep comments to 1,000 characters or fewer.');return}
+    setBusy('comment:'+postId);setError('')
+    try{
+      await dbRequest('community_comments',{method:'POST',account:c.account,query:'select=*',prefer:'return=minimal',body:{post_id:postId,user_id:c.account.id,body}})
+      setCommentDrafts(old=>({...old,[postId]:''}));await load()
+    }catch(e){setError(e instanceof Error?e.message:'Could not add your comment.')}
+    finally{setBusy('')}
+  }
+
+  return <div className="mx-auto max-w-3xl space-y-5">
+    <header><p className="text-xs font-extrabold uppercase tracking-[.16em] text-emerald-700">PricePulse social shopping</p><h1 className="mt-1 text-3xl font-black tracking-tight">Community</h1><p className="mt-2 text-sm leading-6 text-mute">Share shopping tips, follow contributors, and help one another make smarter buying decisions. Only real posts from users appear here.</p></header>
+    {error&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+    {notice&&<p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
+    <form className="card space-y-3" onSubmit={createPost}>
+      <label className="block text-sm font-bold" htmlFor="community-post">Share with the community</label>
+      <textarea id="community-post" className="inp min-h-28 resize-y" maxLength={2000} value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Share a shopping tip or tell the community what you learned…" disabled={!c.account||busy==='post'}/>
+      <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-xs text-mute">{draft.length}/2000 characters · Be kind. Never post private information.</span><button className="btn" disabled={!c.account||busy==='post'||!draft.trim()}>{busy==='post'?'Publishing…':'Publish post'}</button></div>
+      {!c.account&&<p className="text-xs text-amber-800">Log in to publish, follow, like, or comment. You can still read public community posts.</p>}
+    </form>
+    <div className="flex items-center justify-between gap-3"><h2 className="font-bold">Latest community posts</h2><button className="btn2 !py-1.5" onClick={()=>void load()} disabled={loading}>Refresh</button></div>
+    {loading?<div className="card text-sm text-mute">Loading community…</div>:posts.length===0?<div className="card py-10 text-center"><p className="text-3xl" aria-hidden="true">🌱</p><h3 className="mt-2 font-bold">Your community starts here</h3><p className="mt-1 text-sm text-mute">No community posts yet. Be the first to share a helpful shopping tip.</p></div>:<div className="space-y-4">{posts.map((p:any)=>{
+      const profile=profiles[p.author_id]||{}
+      const author=profile.display_name||profile.username||'PricePulse member'
+      const postLikes=likes.filter((x:any)=>x.post_id===p.id)
+      const liked=!!c.account&&postLikes.some((x:any)=>x.user_id===c.account.id)
+      const postComments=comments.filter((x:any)=>x.post_id===p.id)
+      return <article key={p.id} className="card space-y-3">
+        <div className="flex items-start justify-between gap-3"><div className="flex min-w-0 items-center gap-3"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-50 font-bold text-emerald-800" aria-hidden="true">{author.slice(0,1).toUpperCase()}</div><div className="min-w-0"><p className="font-bold">{author}</p><p className="text-xs text-mute">{new Date(p.created_at).toLocaleString()}</p></div></div>{c.account&&p.author_id!==c.account.id&&<button className="btn2 !px-3 !py-1.5 text-xs" disabled={busy==='follow:'+p.author_id} onClick={()=>void toggleFollow(p.author_id)}>{following.includes(p.author_id)?'Following':'Follow'}</button>}</div>
+        <p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-800">{p.body}</p>
+        <div className="flex flex-wrap items-center gap-3 border-y border-slate-100 py-2 text-sm"><button className={liked?'font-bold text-emerald-700':'text-slate-600'} aria-pressed={liked} disabled={!c.account||busy==='like:'+p.id} onClick={()=>void toggleLike(p.id)}>♥ {postLikes.length} {postLikes.length===1?'like':'likes'}</button><span className="text-xs text-mute">💬 {postComments.length} comments</span><span className="ml-auto text-[11px] text-mute">Community post</span></div>
+        <div className="space-y-2">{postComments.slice(-3).map((comment:any)=><div key={comment.id} className="rounded-xl bg-slate-50 px-3 py-2"><p className="text-xs font-bold">{profiles[comment.user_id]?.display_name||'PricePulse member'}</p><p className="mt-1 whitespace-pre-wrap break-words text-sm">{comment.body}</p></div>)}
+          {postComments.length>3&&<p className="text-xs text-mute">Showing the latest 3 of {postComments.length} comments.</p>}
+          <form className="flex gap-2" onSubmit={e=>void addComment(e,p.id)}><input aria-label="Write a comment" className="inp min-w-0" maxLength={1000} value={commentDrafts[p.id]||''} onChange={e=>setCommentDrafts(old=>({...old,[p.id]:e.target.value}))} placeholder={c.account?'Write a helpful comment…':'Log in to comment'} disabled={!c.account||busy==='comment:'+p.id}/><button className="btn2 shrink-0" disabled={!c.account||busy==='comment:'+p.id||!(commentDrafts[p.id]||'').trim()}>Reply</button></form>
+        </div>
+      </article>
+    })}</div>}
+    <p className="text-xs leading-5 text-mute">PricePulse is for helpful shopping conversations. Don’t post passwords, private contact details, or misleading prices. Report and moderation tools can be added before opening the community widely.</p>
   </div>
 }
 
