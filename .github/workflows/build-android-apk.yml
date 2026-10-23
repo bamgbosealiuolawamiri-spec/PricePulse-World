@@ -1,4 +1,4 @@
-name: Build PricePulse World Android APK
+name: Build PricePulse World Android Release
 
 on:
   workflow_dispatch:
@@ -76,16 +76,18 @@ jobs:
           }
           GRADLE
 
-      - name: Build debug APK
+      - name: Build Android APK and App Bundle
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug bundleRelease
 
-      - name: Upload APK
+      - name: Upload Android build files
         uses: actions/upload-artifact@v4
         with:
-          name: pricepulse-world-android-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: pricepulse-world-android-release-files
+          path: |
+            android/app/build/outputs/apk/debug/app-debug.apk
+            android/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 14
