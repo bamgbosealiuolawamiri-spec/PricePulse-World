@@ -2,6 +2,9 @@
 -- Apply this migration in Supabase only after reviewing the SQL.
 -- Exactly one administrator email is enabled; payment remains postponed.
 
+-- Application roles need row-level operations only; RLS does not restrict TRUNCATE.
+revoke truncate, trigger, references on table public.shops from anon, authenticated;
+
 alter table public.pricepulse_admin_emails
   add column if not exists is_active boolean not null default true;
 
