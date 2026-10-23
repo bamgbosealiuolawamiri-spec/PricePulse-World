@@ -643,6 +643,16 @@ function ShopVerification({account,shops}:any){
     finally{setPayingId('')}
   }
 
+  const verifyPayment=async(reference:string)=>{
+    setError('');setNotice('');setPayingId('verify:'+reference)
+    try{
+      const result=await callPayment({action:'verify',reference})
+      setNotice(result.message||'Payment status checked.')
+      await load()
+    }catch(e){setError(e instanceof Error?e.message:'Could not verify payment. Please try again.')}
+    finally{setPayingId('')}
+  }
+
   const submit=async(e:FormEvent)=>{
     e.preventDefault();setError('');setNotice('')
     if(!account?.id){setError('Log in as the shop owner first.');return}
@@ -675,7 +685,7 @@ function ShopVerification({account,shops}:any){
       <p className="text-xs text-mute">Paystack checkout opens securely in a separate payment page. Do not enter passwords or bank PINs into PricePulse. Payment is verified on the server, and shop approval remains separate.</p>
       <button className="btn w-full" disabled={busy||!!payingId}>{busy?'Saving application…':'Submit application and pay'}</button>
     </form>}
-    {applications.length>0&&<section className="space-y-2"><h2 className="font-bold">Your applications</h2>{applications.map((a:any)=><article key={a.id} className="card text-sm"><p className="font-semibold">{owned.find((s:any)=>s.id===a.shop_id)?.name||'Shop'} · {a.plan==='premium'?'Premium':'Verified Shop'}</p><p className="mt-1">₦{Number(a.monthly_price_ngn).toLocaleString()} / month · {String(a.status).replace('_',' ')}</p><p className="mt-1">Payment: <strong>{a.payment_status||'unpaid'}</strong></p>{a.payment_status!=='paid'&&['pending','payment_pending'].includes(a.status)&&<button className="btn2 mt-3" disabled={!!payingId||busy} onClick={()=>void startPayment(a.id)}>{payingId===a.id?'Opening checkout…':'Pay now'}</button>}<p className="mt-1 text-xs text-mute">Submitted {new Date(a.created_at).toLocaleDateString()}. Paid applications still require manual approval.</p></article>)}</section>}
+    {applications.length>0&&<section className="space-y-2"><h2 className="font-bold">Your applications</h2>{applications.map((a:any)=><article key={a.id} className="card text-sm"><p className="font-semibold">{owned.find((s:any)=>s.id===a.shop_id)?.name||'Shop'} · {a.plan==='premium'?'Premium':'Verified Shop'}</p><p className="mt-1">₦{Number(a.monthly_price_ngn).toLocaleString()} / month · {String(a.status).replace('_',' ')}</p><p className="mt-1">Payment: <strong>{a.payment_status||'unpaid'}</strong></p>{a.payment_status==='pending'&&a.payment_reference&&<button className="btn2 mt-3 mr-2" disabled={!!payingId||busy} onClick={()=>void verifyPayment(a.payment_reference)}>{payingId==='verify:'+a.payment_reference?'Checking payment…':'Check payment'}</button>}{a.payment_status!=='paid'&&a.payment_status!=='pending'&&['pending','payment_pending'].includes(a.status)&&<button className="btn2 mt-3" disabled={!!payingId||busy} onClick={()=>void startPayment(a.id)}>{payingId===a.id?'Opening checkout…':'Pay now'}</button>}<p className="mt-1 text-xs text-mute">Submitted {new Date(a.created_at).toLocaleDateString()}. Paid applications still require manual approval.</p></article>)}</section>}
   </div>
 }
 
