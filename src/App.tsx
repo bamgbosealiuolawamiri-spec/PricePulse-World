@@ -48,6 +48,7 @@ export default function App(){
   const [alerts,setAlerts]=useLS<Record<string,number>>('alerts',{})
   const [basket,setBasket]=useLS<Record<string,number>>('basket',{})
   const [account,setAccount]=useLS<{id:string;email:string;name:string;access_token?:string;refresh_token?:string}|null>('account',null)
+  const [entryRole,setEntryRole]=useLS<'customer'|'shop-owner'|'guest'|null>('entry-role',null)
   const [subs,setSubs]=useState<any[]>([])
   const [shops,setShops]=useState<any[]>([])
   const [country,setCountryState]=useLS('country','Nigeria')
@@ -79,12 +80,15 @@ export default function App(){
   const ctx={loc,saved,toggleSave,alerts,setAlerts,basket,setBasket,subs,setSubs,shops,setShops,dist,account,country,setCountry,city,setCity,currency,setCurrency,refreshSharedData}
 
   const links=[['','Home'],['search','Search'],['shops','Shops'],['basket','Basket'],['saved','Saved'],['submit','Submit price'],['admin','Admin'],['auth',account?'Account':'Log in']]
+  const chooseRole=(role:'customer'|'shop-owner'|'guest')=>{setEntryRole(role);location.hash=role==='shop-owner'?(account?'#/shops':'#/auth?mode=signup'):'#/'}
+  if(!entryRole&&!recoveryLink)return <EntryChoice onChoose={chooseRole}/>
   return <div className="min-h-screen flex flex-col">
     <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-white focus:p-2">Skip to content</a>
     <header className="sticky top-0 z-40 border-b bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
         <a href="#/" className="flex items-center gap-2 font-extrabold text-deep" aria-label="PricePulse World home"><span className="grid h-9 w-9 place-items-center overflow-hidden rounded-xl bg-[#063D2C] shadow-sm"><svg aria-hidden="true" viewBox="0 0 100 100" className="h-full w-full"><defs><linearGradient id="ppIconGreen" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#9AF542"/><stop offset="1" stopColor="#00B969"/></linearGradient></defs><path d="M28 13h29c19 0 30 11 30 28S76 69 57 69H45v18H28z" fill="#fff"/><circle cx="57" cy="42" r="16" fill="#063D2C" stroke="#00B969" strokeWidth="3"/><path d="M45 42a12 12 0 0 1 24 0M57 30c-7 8-7 16 0 24M45 42h24" fill="none" stroke="#7EF044" strokeWidth="2"/><path d="M8 48l17-15 16 16-17 18z" fill="url(#ppIconGreen)" stroke="#063D2C" strokeWidth="2"/><path d="M17 47h14m-7-7v19" stroke="#fff" strokeWidth="3" strokeLinecap="round"/><rect x="62" y="70" width="7" height="14" rx="2" fill="#7EF044"/><rect x="73" y="65" width="7" height="19" rx="2" fill="#43E65A"/><rect x="84" y="59" width="7" height="25" rx="2" fill="#00B969"/></svg></span><span>PricePulse <span className="text-brand">World</span></span></a>
         <nav className="hidden gap-1 md:flex" aria-label="Main">{links.map(([h,l])=><a key={h} href={'#/'+h} className={`rounded-lg px-3 py-2 text-sm font-medium hover:bg-soft ${route===h?'bg-soft text-deep':'text-mute'}`}>{l}{h==='basket'&&Object.keys(basket).length?` (${Object.keys(basket).length})`:''}</a>)}</nav>
+        <button className="hidden text-xs font-semibold text-mute underline lg:block" onClick={()=>setEntryRole(null)}>Switch role</button>
         <button className="btn2 md:hidden" aria-expanded={menu} aria-label="Toggle menu" onClick={()=>setMenu(!menu)}>{menu?'✕':'☰'}</button>
       </div>
       {menu&&<nav className="grid gap-1 border-t p-3 md:hidden" aria-label="Mobile">{links.map(([h,l])=><a key={h} href={'#/'+h} onClick={()=>setMenu(false)} className="rounded-lg px-3 py-3 font-medium hover:bg-soft">{l}</a>)}</nav>}
@@ -120,6 +124,33 @@ export default function App(){
         </div>
       </section>PricePulse World · Know the price. Compare the world. Save smarter.<br/><nav className="my-3 flex flex-wrap justify-center gap-4" aria-label="Information"><a className="underline" href="/about/">About</a><a className="underline" href="/how-it-works/">How it works</a><a className="underline" href="/explore-prices/">Explore prices</a></nav>Only submitted listings are shown. Shop and price submissions require verification before being treated as trusted. Maps © OpenStreetMap contributors.</footer>
   </div>
+}
+
+function EntryChoice({onChoose}:{onChoose:(role:'customer'|'shop-owner'|'guest')=>void}){
+  const choices=[
+    {role:'customer' as const,icon:'🛍️',title:'I’m a customer',description:'Compare prices, discover nearby shops, save products, and share prices you have checked.',action:'Continue as customer'},
+    {role:'shop-owner' as const,icon:'🏪',title:'I own a shop',description:'Create an account, register your real shop, and submit prices for review so shoppers can find you.',action:'Continue as shop owner'},
+    {role:'guest' as const,icon:'🌍',title:'Continue as guest',description:'Explore PricePulse World without creating an account. You can sign up later to submit prices or register a shop.',action:'Explore as guest'}
+  ]
+  return <main className="min-h-screen bg-slate-50 px-4 py-8 sm:py-12">
+    <div className="mx-auto max-w-5xl">
+      <header className="mb-8 text-center">
+        <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-[#063D2C] text-2xl text-white shadow-sm" aria-hidden="true">↗</div>
+        <p className="text-xs font-extrabold uppercase tracking-[.2em] text-emerald-700">Know the price. Compare the world. Save smarter.</p>
+        <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-5xl">Welcome to PricePulse <span className="text-emerald-700">World</span></h1>
+        <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-slate-600">Before you enter, tell us how you want to use PricePulse. We’ll tailor your starting point to you.</p>
+      </header>
+      <section className="grid gap-4 md:grid-cols-3" aria-label="Choose how to use PricePulse World">
+        {choices.map(choice=><article key={choice.role} className="flex flex-col rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md">
+          <span className="grid h-14 w-14 place-items-center rounded-2xl bg-emerald-50 text-3xl" aria-hidden="true">{choice.icon}</span>
+          <h2 className="mt-5 text-xl font-extrabold text-slate-950">{choice.title}</h2>
+          <p className="mt-2 flex-1 text-sm leading-6 text-slate-600">{choice.description}</p>
+          <button className="btn mt-6 w-full" onClick={()=>onChoose(choice.role)}>{choice.action}<span aria-hidden="true">→</span></button>
+        </article>)}
+      </section>
+      <p className="mx-auto mt-7 max-w-2xl text-center text-xs leading-5 text-slate-500">You can change your role later. Shop registrations and price reports may require an account, and submitted listings are reviewed before being marked as verified or approved.</p>
+    </div>
+  </main>
 }
 
 type C=any
