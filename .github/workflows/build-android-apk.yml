@@ -11,7 +11,7 @@ on:
       - ".github/workflows/build-android-apk.yml"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-android:
@@ -81,6 +81,19 @@ jobs:
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug bundleRelease
+
+      - name: Publish APK for free website downloads
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-download
+          name: PricePulse World Android Test Build
+          body: |
+            PricePulse World Android test build.
+            This is a debug APK for early testing, not a production-signed release.
+            Install only if you trust the source. Android may display a warning during installation.
+          prerelease: true
+          make_latest: false
+          files: android/app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload Android build files
         uses: actions/upload-artifact@v4
