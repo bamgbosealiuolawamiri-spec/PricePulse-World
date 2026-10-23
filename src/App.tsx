@@ -406,7 +406,7 @@ function Admin(c:C){
       {pendingApplications.map((a:any)=><article key={a.id} className="card space-y-2">
         <h3 className="font-semibold">{a.shop?.name||'Shop verification request'}</h3>
         <p className="text-sm text-mute">{[a.shop?.address,a.shop?.city,a.shop?.country].filter(Boolean).join(', ')||'Shop details unavailable'}</p>
-        <p className="text-sm">Plan: {a.plan==='premium'?'Premium':'Verified'} · Planned price: ₦{Number(a.monthly_price_ngn).toLocaleString()}/month · Payment is postponed; review is free.</p>
+        <p className="text-sm">Free manual review · no payment required.</p>
         <p className="whitespace-pre-wrap break-words text-sm">{a.business_evidence}</p>
         <p className="text-xs text-mute">Submitted {new Date(a.created_at).toLocaleString()}</p>
         <div className="flex flex-wrap gap-2"><button disabled={!!busyId} className="btn" onClick={()=>void reviewApplication(a.id,true)}>{busyId===a.id?'Saving…':'Approve verification'}</button><button disabled={!!busyId} className="btn2" onClick={()=>void reviewApplication(a.id,false)}>Reject application</button></div>
