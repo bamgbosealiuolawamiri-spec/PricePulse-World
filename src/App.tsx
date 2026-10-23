@@ -586,72 +586,15 @@ function ShopVerification({account,shops}:any){
   const [error,setError]=useState('')
   const [notice,setNotice]=useState('')
   const [busy,setBusy]=useState(false)
-  const [payingId,setPayingId]=useState('')
-  const [returnChecked,setReturnChecked]=useState(false)
-
-  const callPayment=async(payload:any)=>{
-    const supabaseUrl=(import.meta.env.VITE_SUPABASE_URL||'').replace(/\/$/,'')
-    const anonKey=import.meta.env.VITE_SUPABASE_ANON_KEY||''
-    let session:any={}
-    try{session=JSON.parse(localStorage.getItem('pp:authSession')||'{}')}catch{/* invalid local session */}
-    const accessToken=account?.access_token||session.access_token
-    if(!supabaseUrl||!anonKey)throw new Error('Supabase is not configured for payments yet.')
-    if(!accessToken)throw new Error('Your sign-in session has expired. Please log in again.')
-    const response=await fetch(supabaseUrl+'/functions/v1/shop-verification-payment',{
-      method:'POST',
-      headers:{apikey:anonKey,Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},
-      body:JSON.stringify(payload)
-    })
-    const data=await response.json().catch(()=>({}))
-    if(!response.ok)throw new Error(data.error||'Payment service is not ready. Check the Supabase function setup.')
-    return data
-  }
 
   const load=async()=>{
     if(!account?.id)return
     try{
-      const rows=await dbRequest<any[]>('shop_verification_applications',{account,query:'select=id,shop_id,plan,status,monthly_price_ngn,payment_status,payment_reference,created_at&applicant_id=eq.'+encodeURIComponent(account.id)+'&order=created_at.desc'})
+      const rows=await dbRequest<any[]>('shop_verification_applications',{account,query:'select=id,shop_id,plan,status,monthly_price_ngn,created_at&applicant_id=eq.'+encodeURIComponent(account.id)+'&order=created_at.desc'})
       setApplications(rows||[])
     }catch(e){setError(e instanceof Error?e.message:'Apply the shop-connect database migration before using verification.')}
   }
   useEffect(()=>{void load()},[account?.id])
-
-  useEffect(()=>{
-    if(!account?.id||returnChecked)return
-    const hashQuery=location.hash.includes('?')?location.hash.slice(location.hash.indexOf('?')+1):''
-    const reference=new URLSearchParams(hashQuery).get('reference')
-      ||new URLSearchParams(hashQuery).get('trxref')
-      ||new URLSearchParams(location.search).get('reference')
-      ||new URLSearchParams(location.search).get('trxref')
-    if(!reference)return
-    setReturnChecked(true)
-    setError('')
-    void callPayment({action:'verify',reference}).then((result:any)=>{
-      setNotice(result.message||'Payment status checked.')
-      return load()
-    }).catch((e:any)=>setError(e instanceof Error?e.message:'Could not verify the payment yet. Try again shortly.'))
-      .finally(()=>window.history.replaceState({},'',window.location.pathname+'#/verification'))
-  },[account?.id,returnChecked])
-
-  const startPayment=async(applicationId:string)=>{
-    setError('');setNotice('');setPayingId(applicationId)
-    try{
-      const result=await callPayment({action:'initialize',application_id:applicationId})
-      if(!result.authorization_url||!/^https:\/\/checkout\.paystack\.com\//.test(result.authorization_url))throw new Error('Paystack returned an invalid checkout link.')
-      window.location.assign(result.authorization_url)
-    }catch(e){setError(e instanceof Error?e.message:'Could not start payment. Please try again.')}
-    finally{setPayingId('')}
-  }
-
-  const verifyPayment=async(reference:string)=>{
-    setError('');setNotice('');setPayingId('verify:'+reference)
-    try{
-      const result=await callPayment({action:'verify',reference})
-      setNotice(result.message||'Payment status checked.')
-      await load()
-    }catch(e){setError(e instanceof Error?e.message:'Could not verify payment. Please try again.')}
-    finally{setPayingId('')}
-  }
 
   const submit=async(e:FormEvent)=>{
     e.preventDefault();setError('');setNotice('')
@@ -661,34 +604,31 @@ function ShopVerification({account,shops}:any){
     if(!shop){setError('Choose a shop registered to your account.');return}
     setBusy(true)
     try{
-      const created=await dbRequest<any[]>('shop_verification_applications',{method:'POST',account,query:'select=id',prefer:'return=representation',body:{shop_id:shopId,applicant_id:account.id,plan,monthly_price_ngn:plan==='verified'?2000:5000,business_evidence:evidence.trim(),status:'pending'}})
-      const applicationId=created?.[0]?.id
+      await dbRequest<any[]>('shop_verification_applications',{method:'POST',account,query:'select=id',prefer:'return=representation',body:{shop_id:shopId,applicant_id:account.id,plan,monthly_price_ngn:plan==='verified'?2000:5000,business_evidence:evidence.trim(),status:'pending'}})
       setEvidence('')
       await load()
-      if(!applicationId)throw new Error('Your application may have been saved, but its ID was not returned. Refresh your applications and use Pay now.')
-      setNotice('Application saved. Opening secure Paystack checkout…')
-      await startPayment(applicationId)
+      setNotice('Your application was submitted successfully. It is pending manual review. No payment is collected at this time.')
     }catch(e){setError(e instanceof Error?e.message:'Could not submit your application.')}
     finally{setBusy(false)}
   }
 
   if(!account?.id)return <Empty t="Log in as a shop owner" d="You need a shop owner account to apply for verification."/>
   return <div className="mx-auto max-w-2xl space-y-4">
-    <header><p className="text-xs font-extrabold uppercase tracking-[.16em] text-blue-700">Shop trust</p><h1 className="mt-1 text-3xl font-black">Get your shop verified <VerifiedBadge/></h1><p className="mt-2 text-sm leading-6 text-mute">Secure Paystack checkout collects the application fee. Payment alone never guarantees a blue badge; each shop still needs manual review.</p></header>
-    <div className="grid gap-3 sm:grid-cols-2"><article className="card"><p className="font-bold">🔵 Verified Shop</p><p className="mt-1 text-2xl font-black">₦2,000<span className="text-sm font-medium text-mute"> / month</span></p><p className="mt-2 text-sm text-mute">Application fee · badge only after manual approval.</p></article><article className="card"><p className="font-bold">⭐ Premium Shop</p><p className="mt-1 text-2xl font-black">₦5,000<span className="text-sm font-medium text-mute"> / month</span></p><p className="mt-2 text-sm text-mute">Application fee · additional promotional features can be added later.</p></article></div>
+    <header><p className="text-xs font-extrabold uppercase tracking-[.16em] text-blue-700">Shop trust</p><h1 className="mt-1 text-3xl font-black">Get your shop verified <VerifiedBadge/></h1><p className="mt-2 text-sm leading-6 text-mute">Apply for shop verification for free while PricePulse World is getting started. Every application is reviewed manually; submitting an application does not guarantee a blue badge.</p></header>
+    <div className="grid gap-3 sm:grid-cols-2"><article className="card"><p className="font-bold">🔵 Verified Shop</p><p className="mt-1 text-2xl font-black">₦2,000<span className="text-sm font-medium text-mute"> / month</span></p><p className="mt-2 text-sm text-mute">Planned price · applications are currently free.</p></article><article className="card"><p className="font-bold">⭐ Premium Shop</p><p className="mt-1 text-2xl font-black">₦5,000<span className="text-sm font-medium text-mute"> / month</span></p><p className="mt-2 text-sm text-mute">Planned price · applications are currently free.</p></article></div>
+    <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">Payments are disabled for now. You will not be asked to pay. Pricing and payment will be introduced only when the payment system is ready.</p>
     {error&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
     {notice&&<p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
     {!owned.length?<Empty t="Register your shop first" d="Once your real shop is submitted under your account, you can apply for verification."/>:<form className="card space-y-3" onSubmit={submit}>
       <label className="block text-sm font-semibold">Your shop<select className="inp mt-1" required value={shopId} onChange={e=>setShopId(e.target.value)}><option value="">Choose a shop</option>{owned.map((s:any)=><option key={s.id} value={s.id}>{s.name} — {s.area}</option>)}</select></label>
-      <label className="block text-sm font-semibold">Plan<select className="inp mt-1" value={plan} onChange={e=>setPlan(e.target.value as 'verified'|'premium')}><option value="verified">Verified Shop — ₦2,000/month</option><option value="premium">Premium Shop — ₦5,000/month</option></select></label>
+      <label className="block text-sm font-semibold">Plan<select className="inp mt-1" value={plan} onChange={e=>setPlan(e.target.value as 'verified'|'premium')}><option value="verified">Verified Shop — planned ₦2,000/month</option><option value="premium">Premium Shop — planned ₦5,000/month</option></select></label>
       <label className="block text-sm font-semibold">Business evidence<textarea className="inp mt-1 min-h-24" required minLength={10} maxLength={2000} value={evidence} onChange={e=>setEvidence(e.target.value)} placeholder="Describe the documents or evidence you can provide to show you own or manage this shop."/></label>
-      <p className="text-xs text-mute">Paystack checkout opens securely in a separate payment page. Do not enter passwords or bank PINs into PricePulse. Payment is verified on the server, and shop approval remains separate.</p>
-      <button className="btn w-full" disabled={busy||!!payingId}>{busy?'Saving application…':'Submit application and pay'}</button>
+      <p className="text-xs text-mute">Provide accurate business information. Your application will be reviewed manually, and no payment is required.</p>
+      <button className="btn w-full" disabled={busy}>{busy?'Submitting application…':'Submit free application'}</button>
     </form>}
-    {applications.length>0&&<section className="space-y-2"><h2 className="font-bold">Your applications</h2>{applications.map((a:any)=><article key={a.id} className="card text-sm"><p className="font-semibold">{owned.find((s:any)=>s.id===a.shop_id)?.name||'Shop'} · {a.plan==='premium'?'Premium':'Verified Shop'}</p><p className="mt-1">₦{Number(a.monthly_price_ngn).toLocaleString()} / month · {String(a.status).replace('_',' ')}</p><p className="mt-1">Payment: <strong>{a.payment_status||'unpaid'}</strong></p>{a.payment_status==='pending'&&a.payment_reference&&<button className="btn2 mt-3 mr-2" disabled={!!payingId||busy} onClick={()=>void verifyPayment(a.payment_reference)}>{payingId==='verify:'+a.payment_reference?'Checking payment…':'Check payment'}</button>}{a.payment_status!=='paid'&&a.payment_status!=='pending'&&['pending','payment_pending'].includes(a.status)&&<button className="btn2 mt-3" disabled={!!payingId||busy} onClick={()=>void startPayment(a.id)}>{payingId===a.id?'Opening checkout…':'Pay now'}</button>}<p className="mt-1 text-xs text-mute">Submitted {new Date(a.created_at).toLocaleDateString()}. Paid applications still require manual approval.</p></article>)}</section>}
+    {applications.length>0&&<section className="space-y-2"><h2 className="font-bold">Your applications</h2>{applications.map((a:any)=><article key={a.id} className="card text-sm"><p className="font-semibold">{owned.find((s:any)=>s.id===a.shop_id)?.name||'Shop'} · {a.plan==='premium'?'Premium':'Verified Shop'}</p><p className="mt-1">Planned price: ₦{Number(a.monthly_price_ngn).toLocaleString()} / month · {String(a.status).replace('_',' ')}</p><p className="mt-1 text-xs text-mute">No payment has been collected. Submitted {new Date(a.created_at).toLocaleDateString()}. A blue badge is added only after manual approval.</p></article>)}</section>}
   </div>
 }
-
 function Submit(c:C){
   const blank=()=>({product:'',shop:'',area:'',price:'',date:new Date().toISOString().slice(0,10),country:c.country||'',currency:c.currency||'USD'})
   const [f,setF]=useState(blank),[done,setDone]=useState(false),[err,setErr]=useState(''),[busy,setBusy]=useState(false)
