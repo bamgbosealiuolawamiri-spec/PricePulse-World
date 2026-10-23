@@ -1,4 +1,3 @@
-/// <reference path="../_shared/deno.d.ts" />
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("SITE_URL") || "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type",
@@ -132,7 +131,18 @@ Deno.serve(async (req: Request) => {
         && metadata.shop_id === app.shop_id
         && metadata.plan === app.plan;
       if (!matches) {
-        return json(402, { paid: false, message: "Payment is not confirmed yet. If you just paid, wait briefly and try again." });
+        // A terminal failure can be retried. Do not mark an in-progress payment failed.
+        if (verifyResponse.ok && verified?.status && transaction?.reference === reference
+          && ["failed", "abandoned"].includes(String(transaction?.status))
+          && Number(transaction?.amount) === expectedAmount
+          && transaction?.currency === "NGN"
+          && metadata.application_id === app.id
+          && metadata.applicant_id === user.id
+          && metadata.shop_id === app.shop_id
+          && metadata.plan === app.plan) {
+          await updateApplication(app.id, { payment_status: "failed" });
+        }
+        return json(402, { paid: false, message: "Payment is not confirmed yet. If you just paid, wait briefly and check again." });
       }
       // Mark the fee paid only. Do not approve the application or enable the badge here.
       await updateApplication(app.id, {
