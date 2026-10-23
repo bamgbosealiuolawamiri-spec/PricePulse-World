@@ -14,6 +14,8 @@ The checkout currently collects one month's fee as a one-time transaction. Autom
 
 ## Setup before enabling checkout
 
+If you are under 18, ask a parent/guardian or another authorized adult to own/manage the payment-provider account and handle its identity, business verification, and secret keys. Do not share secret keys in chat.
+
 1. Apply the migrations in order in the linked Supabase project's SQL Editor:
    - `supabase/migrations/20261023020000_shop_connect_verification.sql`
    - `supabase/migrations/20261023030000_shop_verification_payments.sql`
