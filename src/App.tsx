@@ -628,7 +628,7 @@ function ShopVerification({account,shops}:any){
     if(!shop){setError('Choose a shop registered to your account.');return}
     setBusy(true)
     try{
-      await dbRequest<any[]>('shop_verification_applications',{method:'POST',account,query:'select=id',prefer:'return=representation',body:{shop_id:shopId,applicant_id:account.id,plan:'verified',monthly_price_ngn:2000,business_evidence:evidence.trim(),status:'pending'}})
+      await dbRequest<any[]>('shop_verification_applications',{method:'POST',account,query:'select=id',prefer:'return=representation',body:{shop_id:shopId,applicant_id:account.id,business_evidence:evidence.trim(),status:'pending'}})
       setEvidence('')
       await load()
       setNotice('Your application was submitted successfully. It is pending manual review. No payment is collected at this time.')
