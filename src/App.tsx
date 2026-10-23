@@ -79,7 +79,7 @@ export default function App(){
   const dist=(s:{lat:number;lng:number})=>km(loc,s)
   const ctx={loc,saved,toggleSave,alerts,setAlerts,basket,setBasket,subs,setSubs,shops,setShops,dist,account,country,setCountry,city,setCity,currency,setCurrency,refreshSharedData}
 
-  const links=[['','Home'],['community','Community'],['search','Search'],['shops','Shops'],['basket','Basket'],['saved','Saved'],['submit','Submit price'],['admin','Admin'],['auth',account?'Account':'Log in']]
+  const links=[['','Home'],['community','Community'],['search','Search'],['shops','Shops'],['messages','Messages'],['verification','Verify shop'],['basket','Basket'],['saved','Saved'],['submit','Submit price'],['admin','Admin'],['auth',account?'Account':'Log in']]
   const chooseRole=(role:'customer'|'shop-owner'|'guest')=>{setEntryRole(role);location.hash=role==='shop-owner'?(account?'#/shops':'#/auth?mode=signup'):'#/'}
   if(!entryRole&&!recoveryLink)return <EntryChoice onChoose={chooseRole}/>
   return <div className="min-h-screen flex flex-col">
@@ -104,6 +104,8 @@ export default function App(){
       {route===''&&<Home q={q} setQ={setQ} {...ctx}/>}
       {route==='auth'&&<AuthPage mode={hash.includes('mode=signup')?'signup':'login'} account={account} setAccount={setAccount}/>}
       {route==='community'&&<Community {...ctx}/>}
+      {route==='messages'&&<Messages {...ctx} shopId={new URLSearchParams(hash.includes('?')?hash.slice(hash.indexOf('?')+1):'').get('shop')||''}/>}
+      {route==='verification'&&<ShopVerification {...ctx}/>
       {route==='search'&&<Search {...ctx} q={new URLSearchParams(hash.includes('?')?hash.slice(hash.indexOf('?')+1):'').get('q')||''} cat={new URLSearchParams(hash.includes('?')?hash.slice(hash.indexOf('?')+1):'').get('cat')||''}/>}
       {route==='p'&&<Detail id={arg} {...ctx}/>}
       {route==='shops'&&<Shops {...ctx}/>}
@@ -111,7 +113,7 @@ export default function App(){
       {route==='saved'&&<Saved {...ctx}/>}
       {route==='submit'&&<Submit {...ctx}/>}
       {route==='admin'&&<Admin {...ctx}/>}
-      {!['','community','search','p','shops','basket','saved','submit','admin','auth'].includes(route)&&<Empty t="Page not found" d="That page doesn't exist."/>}
+      {!['','community','messages','verification','search','p','shops','basket','saved','submit','admin','auth'].includes(route)&&<Empty t="Page not found" d="That page doesn't exist."/>}
     </main>
     <footer className="border-t bg-soft px-4 py-6 text-center text-xs text-mute">
       <section className="mx-auto mb-4 max-w-2xl rounded-2xl border border-emerald-100 bg-white px-5 py-4 text-left shadow-sm" aria-labelledby="creator-credit-title">
@@ -260,6 +262,18 @@ function Detail({id,...c}:C){
 
 function Shops(c:C){
   const list=[...c.shops].sort((a:any,b:any)=>c.dist(a)-c.dist(b))
+  const [shopFollows,setShopFollows]=useState<any[]>([])
+  const [followError,setFollowError]=useState('')
+  useEffect(()=>{let active=true;dbRequest<any[]>('shop_follows',{account:c.account,query:'select=shop_id,follower_id&limit=1000'}).then(rows=>{if(active)setShopFollows(rows||[])}).catch(e=>{if(active)setFollowError(e instanceof Error?e.message:'Shop follows are not available yet.')});return()=>{active=false}},[c.account?.id,c.shops.length])
+  const toggleShopFollow=async(shopId:string)=>{
+    if(!c.account?.id){setFollowError('Log in to follow shops.');return}
+    setFollowError('')
+    const exists=shopFollows.some((r:any)=>r.shop_id===shopId&&r.follower_id===c.account.id)
+    try{
+      if(exists){await dbRequest('shop_follows',{method:'DELETE',account:c.account,query:'shop_id=eq.'+encodeURIComponent(shopId)+'&follower_id=eq.'+encodeURIComponent(c.account.id),prefer:'return=minimal'});setShopFollows((rows:any[])=>rows.filter((r:any)=>!(r.shop_id===shopId&&r.follower_id===c.account.id)))}
+      else{await dbRequest('shop_follows',{method:'POST',account:c.account,query:'select=*',prefer:'return=minimal',body:{shop_id:shopId,follower_id:c.account.id}});setShopFollows((rows:any[])=>[...rows,{shop_id:shopId,follower_id:c.account.id}])}
+    }catch(e){setFollowError(e instanceof Error?e.message:'Could not update shop follow. Apply the shop-connect database migration first.')}
+  }
   const [formError,setFormError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false)
   const saveShop=async(e:FormEvent<HTMLFormElement>)=>{
     e.preventDefault();setFormError('');setNotice('')
@@ -285,6 +299,7 @@ function Shops(c:C){
   }
   return <div className="space-y-4"><h1 className="text-2xl font-extrabold">Shops around the world</h1><p className="text-sm text-mute">Register a real shop in any country. New registrations are shared through Supabase and remain pending until verified.</p>
     <MapView center={c.loc} loc={c.loc} shops={list}/>
+    {followError&&<p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{followError}</p>}
     <form className="card space-y-3" onSubmit={saveShop}><h2 className="font-bold">Register a real shop</h2>
       {!c.account&&<p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Log in first to submit a shop.</p>}
       <label className="block text-sm font-medium">Shop name<input required name="name" className="inp mt-1" placeholder="Real shop or business name"/></label>
@@ -297,7 +312,7 @@ function Shops(c:C){
       {notice&&<p role="status" className="rounded-lg bg-emerald-50 p-2 text-sm text-emerald-800">{notice}</p>}
       <button disabled={busy||!c.account} type="submit" className="btn w-full">{busy?'Saving…':'Submit shop for verification'}</button>
     </form>
-    {list.length?<ul className="grid gap-3 sm:grid-cols-2">{list.map((s:any)=><li key={s.id} className="card"><p className="flex flex-wrap items-center gap-2 font-semibold">{s.name}{s.verified&&<VerifiedBadge/>}</p><p className="text-sm text-mute">{s.area} · {c.dist(s).toFixed(1)} km away · {s.verified?'Verified':'Pending verification'}</p><div className="mt-3 flex flex-wrap gap-2">{s.verified&&s.phone&&<a className="btn2 inline-block" href={`tel:${s.phone}`}>Call shop</a>}{s.verified&&s.whatsapp&&<a className="btn2 inline-block" target="_blank" rel="noreferrer" href={`https://wa.me/${String(s.whatsapp).replace(/\D/g,'')}`}>WhatsApp shop</a>}<a className="btn2 inline-block" target="_blank" rel="noreferrer" href={`https://www.openstreetmap.org/directions?from=${c.loc.lat},${c.loc.lng}&to=${s.lat},${s.lng}`}>Get directions</a></div></li>)}</ul>:<Empty t="No verified shops in this view yet" d="There are no built-in sample shops. Real shops will appear here after they are registered and verified."/>}
+    {list.length?<ul className="grid gap-3 sm:grid-cols-2">{list.map((s:any)=><li key={s.id} className="card"><p className="flex flex-wrap items-center gap-2 font-semibold">{s.name}{s.verified&&<VerifiedBadge/>}</p><p className="text-sm text-mute">{s.area} · {c.dist(s).toFixed(1)} km away · {s.verified?'Verified':'Pending verification'}</p><p className="mt-2 text-xs text-slate-500">{shopFollows.filter((r:any)=>r.shop_id===s.id).length} followers</p><div className="mt-3 flex flex-wrap gap-2"><button className="btn2 inline-block" disabled={!c.account} onClick={()=>void toggleShopFollow(s.id)}>{shopFollows.some((r:any)=>r.shop_id===s.id&&r.follower_id===c.account?.id)?'Following':'Follow shop'}</button>{s.owner_id&&s.owner_id!==c.account?.id&&<a className="btn2 inline-block" href={`#/messages?shop=${encodeURIComponent(s.id)}`}>Message shop</a>}{s.verified&&s.phone&&<a className="btn2 inline-block" href={`tel:${s.phone}`}>Call shop</a>}{s.verified&&s.whatsapp&&<a className="btn2 inline-block" target="_blank" rel="noreferrer" href={`https://wa.me/${String(s.whatsapp).replace(/\D/g,'')}`}>WhatsApp shop</a>}<a className="btn2 inline-block" target="_blank" rel="noreferrer" href={`https://www.openstreetmap.org/directions?from=${c.loc.lat},${c.loc.lng}&to=${s.lat},${s.lng}`}>Get directions</a></div></li>)}</ul>:<Empty t="No verified shops in this view yet" d="There are no built-in sample shops. Real shops will appear here after they are registered and verified."/>}
   </div>
 }
 function Basket(c:C){
@@ -504,6 +519,106 @@ function Community(c:C){
       </article>
     })}</div>}
     <p className="text-xs leading-5 text-mute">PricePulse is for helpful shopping conversations. Don’t post passwords, private contact details, or misleading prices. Report and moderation tools can be added before opening the community widely.</p>
+  </div>
+}
+
+
+function Messages({account,shops}:any){
+  const [shopId,setShopId]=useState('')
+  const [messages,setMessages]=useState<any[]>([])
+  const [draft,setDraft]=useState('')
+  const [loading,setLoading]=useState(false)
+  const [error,setError]=useState('')
+  const [notice,setNotice]=useState('')
+  const [busy,setBusy]=useState(false)
+  const selectedId=shopId||shops.find((s:any)=>s.id===new URLSearchParams(location.hash.includes('?')?location.hash.slice(location.hash.indexOf('?')+1):'').get('shop'))?.id||''
+  const shop=shops.find((s:any)=>s.id===selectedId)
+  const load=async()=>{
+    if(!account?.id){setMessages([]);return}
+    setLoading(true);setError('')
+    try{
+      const rows=await dbRequest<any[]>('shop_messages',{account,query:'select=*&or=(sender_id.eq.'+encodeURIComponent(account.id)+',recipient_id.eq.'+encodeURIComponent(account.id)+')&order=created_at.asc&limit=300'})
+      setMessages((rows||[]).filter((m:any)=>!selectedId||m.shop_id===selectedId))
+    }catch(e){setError(e instanceof Error?e.message:'Could not load messages. Apply the shop-connect database migration first.')}
+    finally{setLoading(false)}
+  }
+  useEffect(()=>{void load()},[account?.id,selectedId,shops.length])
+  const send=async(e:FormEvent)=>{
+    e.preventDefault();setError('');setNotice('')
+    if(!account?.id){setError('Log in to send messages.');return}
+    if(!shop){setError('Choose a shop first.');return}
+    const body=draft.trim()
+    if(!body){setError('Write a message first.');return}
+    let recipientId=shop.owner_id
+    if(account.id===shop.owner_id){
+      const prior=messages.find((m:any)=>m.shop_id===shop.id&&m.sender_id!==account.id)
+      if(!prior){setError('A customer must message this shop first before you can reply.');return}
+      recipientId=prior.sender_id
+    }
+    if(!recipientId||recipientId===account.id){setError('This shop does not have a messageable owner account.');return}
+    setBusy(true)
+    try{
+      await dbRequest('shop_messages',{method:'POST',account,query:'select=*',prefer:'return=minimal',body:{shop_id:shop.id,sender_id:account.id,recipient_id:recipientId,body}})
+      setDraft('');await load();setNotice('Message sent privately.')
+    }catch(e){setError(e instanceof Error?e.message:'Could not send the message.')}
+    finally{setBusy(false)}
+  }
+  if(!account?.id)return <Empty t="Log in to message shops" d="Private shop messages are available to signed-in customers and shop owners."/>
+  return <div className="mx-auto max-w-2xl space-y-4">
+    <header><p className="text-xs font-extrabold uppercase tracking-[.16em] text-emerald-700">Private conversations</p><h1 className="mt-1 text-3xl font-black">Messages</h1><p className="mt-2 text-sm text-mute">Ask a shop about product availability or current prices. Only the customer and shop owner can read their conversation.</p></header>
+    <label className="block text-sm font-semibold">Choose a shop<select className="inp mt-1" value={selectedId} onChange={e=>{setShopId(e.target.value);location.hash='#/messages?shop='+encodeURIComponent(e.target.value)}}><option value="">Select a shop</option>{shops.map((s:any)=><option key={s.id} value={s.id}>{s.name} — {s.area}</option>)}</select></label>
+    {error&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+    {notice&&<p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
+    <section className="card min-h-48 space-y-3">
+      {loading?<p className="text-sm text-mute">Loading messages…</p>:messages.length===0?<p className="py-8 text-center text-sm text-mute">No messages in this conversation yet. Open a shop and choose “Message shop” to start.</p>:messages.map((m:any)=><article key={m.id} className={'max-w-[90%] rounded-2xl px-4 py-3 text-sm '+(m.sender_id===account.id?'ml-auto bg-emerald-50':'bg-slate-100')}><p className="whitespace-pre-wrap break-words">{m.body}</p><p className="mt-1 text-[10px] text-slate-500">{m.sender_id===account.id?'You':'Shop/customer'} · {new Date(m.created_at).toLocaleString()}</p></article>)}
+    </section>
+    <form className="card flex flex-col gap-3 sm:flex-row" onSubmit={send}><textarea className="inp min-h-20 flex-1" maxLength={2000} value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Ask about price or availability…" disabled={!shop||busy}/><button className="btn self-end sm:self-stretch" disabled={!shop||busy||!draft.trim()}>{busy?'Sending…':'Send message'}</button></form>
+    <button className="btn2" onClick={()=>void load()} disabled={loading}>Refresh messages</button>
+  </div>
+}
+
+function ShopVerification({account,shops}:any){
+  const owned=(shops||[]).filter((s:any)=>s.owner_id===account?.id)
+  const [shopId,setShopId]=useState('')
+  const [plan,setPlan]=useState<'verified'|'premium'>('verified')
+  const [evidence,setEvidence]=useState('')
+  const [applications,setApplications]=useState<any[]>([])
+  const [error,setError]=useState('')
+  const [notice,setNotice]=useState('')
+  const [busy,setBusy]=useState(false)
+  const load=async()=>{
+    if(!account?.id)return
+    try{const rows=await dbRequest<any[]>('shop_verification_applications',{account,query:'select=id,shop_id,plan,status,monthly_price_ngn,created_at&applicant_id=eq.'+encodeURIComponent(account.id)+'&order=created_at.desc'});setApplications(rows||[])}
+    catch(e){setError(e instanceof Error?e.message:'Apply the shop-connect database migration before using verification.')}
+  }
+  useEffect(()=>{void load()},[account?.id])
+  const submit=async(e:FormEvent)=>{
+    e.preventDefault();setError('');setNotice('')
+    if(!account?.id){setError('Log in as the shop owner first.');return}
+    if(!shopId||!evidence.trim()||evidence.trim().length<10){setError('Choose your shop and provide at least 10 characters of business evidence.');return}
+    const shop=owned.find((s:any)=>s.id===shopId)
+    if(!shop){setError('Choose a shop registered to your account.');return}
+    setBusy(true)
+    try{
+      await dbRequest('shop_verification_applications',{method:'POST',account,query:'select=*',prefer:'return=minimal',body:{shop_id:shopId,applicant_id:account.id,plan,monthly_price_ngn:plan==='verified'?2000:5000,business_evidence:evidence.trim(),status:'pending'}})
+      setEvidence('');setNotice('Application submitted for manual review. This does not charge you or grant a blue badge yet.');await load()
+    }catch(e){setError(e instanceof Error?e.message:'Could not submit verification application.')}
+    finally{setBusy(false)}
+  }
+  if(!account?.id)return <Empty t="Log in as a shop owner" d="You need a shop owner account to apply for verification."/>
+  return <div className="mx-auto max-w-2xl space-y-4">
+    <header><p className="text-xs font-extrabold uppercase tracking-[.16em] text-blue-700">Shop trust</p><h1 className="mt-1 text-3xl font-black">Get your shop verified <VerifiedBadge/></h1><p className="mt-2 text-sm leading-6 text-mute">The blue badge is for businesses reviewed by PricePulse World. Paying alone will not guarantee verification.</p></header>
+    <div className="grid gap-3 sm:grid-cols-2"><article className="card"><p className="font-bold">🔵 Verified Shop</p><p className="mt-1 text-2xl font-black">₦2,000<span className="text-sm font-medium text-mute"> / month</span></p><p className="mt-2 text-sm text-mute">Proposed price · badge after approval and payment verification.</p></article><article className="card"><p className="font-bold">⭐ Premium Shop</p><p className="mt-1 text-2xl font-black">₦5,000<span className="text-sm font-medium text-mute"> / month</span></p><p className="mt-2 text-sm text-mute">Proposed price · additional promotional features can be added later.</p></article></div>
+    {error&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+    {notice&&<p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
+    {!owned.length?<Empty t="Register your shop first" d="Once your real shop is submitted under your account, you can apply for verification."/>:<form className="card space-y-3" onSubmit={submit}>
+      <label className="block text-sm font-semibold">Your shop<select className="inp mt-1" required value={shopId} onChange={e=>setShopId(e.target.value)}><option value="">Choose a shop</option>{owned.map((s:any)=><option key={s.id} value={s.id}>{s.name} — {s.area}</option>)}</select></label>
+      <label className="block text-sm font-semibold">Plan<select className="inp mt-1" value={plan} onChange={e=>setPlan(e.target.value as 'verified'|'premium')}><option value="verified">Verified Shop — ₦2,000/month</option><option value="premium">Premium Shop — ₦5,000/month</option></select></label>
+      <label className="block text-sm font-semibold">Business evidence<textarea className="inp mt-1 min-h-24" required minLength={10} maxLength={2000} value={evidence} onChange={e=>setEvidence(e.target.value)} placeholder="Describe the documents or evidence you can provide to show you own or manage this shop."/></label>
+      <p className="text-xs text-mute">Do not enter passwords or sensitive financial details. Payment collection is not connected yet, and the badge stays off until verification and payment are securely confirmed.</p>
+      <button className="btn w-full" disabled={busy}>{busy?'Submitting…':'Submit for manual review'}</button>
+    </form>}
+    {applications.length>0&&<section className="space-y-2"><h2 className="font-bold">Your applications</h2>{applications.map((a:any)=><article key={a.id} className="card text-sm"><p className="font-semibold">{owned.find((s:any)=>s.id===a.shop_id)?.name||'Shop'} · {a.plan==='premium'?'Premium':'Verified Shop'}</p><p className="mt-1">₦{a.monthly_price_ngn.toLocaleString()} / month · {a.status.replace('_',' ')}</p><p className="mt-1 text-xs text-mute">Submitted {new Date(a.created_at).toLocaleDateString()}</p></article>)}</section>}
   </div>
 }
 
