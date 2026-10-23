@@ -16,8 +16,10 @@ create index if not exists shop_follows_follower_idx
 alter table public.shop_follows enable row level security;
 
 drop policy if exists "Shop follows are publicly readable" on public.shop_follows;
-create policy "Shop follows are publicly readable"
-  on public.shop_follows for select to anon, authenticated using (true);
+drop policy if exists "Users can read their own shop follows" on public.shop_follows;
+create policy "Users can read their own shop follows"
+  on public.shop_follows for select to authenticated
+  using (auth.uid() = follower_id);
 
 drop policy if exists "Users can follow shops as themselves" on public.shop_follows;
 create policy "Users can follow shops as themselves"
@@ -29,8 +31,8 @@ create policy "Users can unfollow shops as themselves"
   on public.shop_follows for delete to authenticated
   using (auth.uid() = follower_id);
 
-grant select on public.shop_follows to anon, authenticated;
-grant insert, delete on public.shop_follows to authenticated;
+revoke all on public.shop_follows from anon;
+grant select, insert, delete on public.shop_follows to authenticated;
 
 create table if not exists public.shop_messages (
   id uuid primary key default gen_random_uuid(),
