@@ -105,7 +105,7 @@ export default function App(){
       {route==='auth'&&<AuthPage mode={hash.includes('mode=signup')?'signup':'login'} account={account} setAccount={setAccount}/>}
       {route==='community'&&<Community {...ctx}/>}
       {route==='messages'&&<Messages {...ctx} shopId={new URLSearchParams(hash.includes('?')?hash.slice(hash.indexOf('?')+1):'').get('shop')||''}/>}
-      {route==='verification'&&<ShopVerification {...ctx}/>
+      {route==='verification'&&<ShopVerification {...ctx}/>}
       {route==='search'&&<Search {...ctx} q={new URLSearchParams(hash.includes('?')?hash.slice(hash.indexOf('?')+1):'').get('q')||''} cat={new URLSearchParams(hash.includes('?')?hash.slice(hash.indexOf('?')+1):'').get('cat')||''}/>}
       {route==='p'&&<Detail id={arg} {...ctx}/>}
       {route==='shops'&&<Shops {...ctx}/>}
