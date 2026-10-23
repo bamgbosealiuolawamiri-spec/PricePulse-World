@@ -8,6 +8,7 @@ on:
       - "public/**"
       - "package.json"
       - "index.html"
+      - "vite.config.ts"
       - ".github/workflows/build-android-apk.yml"
 
 permissions:
