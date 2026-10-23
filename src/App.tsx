@@ -79,7 +79,7 @@ export default function App(){
   const dist=(s:{lat:number;lng:number})=>km(loc,s)
   const ctx={loc,saved,toggleSave,alerts,setAlerts,basket,setBasket,subs,setSubs,shops,setShops,dist,account,country,setCountry,city,setCity,currency,setCurrency,refreshSharedData}
 
-  const links=[['','Home'],['search','Search'],['shops','Shops'],['basket','Basket'],['saved','Saved'],['submit','Submit price'],['admin','Admin'],['auth',account?'Account':'Log in']]
+  const links=[['','Home'],['community','Community'],['search','Search'],['shops','Shops'],['messages','Messages'],['verification','Verify shop'],['basket','Basket'],['saved','Saved'],['submit','Submit price'],['admin','Admin'],['auth',account?'Account':'Log in']]
   const chooseRole=(role:'customer'|'shop-owner'|'guest')=>{setEntryRole(role);location.hash=role==='shop-owner'?(account?'#/shops':'#/auth?mode=signup'):'#/'}
   if(!entryRole&&!recoveryLink)return <EntryChoice onChoose={chooseRole}/>
   return <div className="min-h-screen flex flex-col">
@@ -103,6 +103,9 @@ export default function App(){
       {dataError&&<p role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">Shared data could not load: {dataError}</p>}
       {route===''&&<Home q={q} setQ={setQ} {...ctx}/>}
       {route==='auth'&&<AuthPage mode={hash.includes('mode=signup')?'signup':'login'} account={account} setAccount={setAccount}/>}
+      {route==='community'&&<Community {...ctx}/>}
+      {route==='messages'&&<Messages {...ctx} shopId={new URLSearchParams(hash.includes('?')?hash.slice(hash.indexOf('?')+1):'').get('shop')||''}/>}
+      {route==='verification'&&<ShopVerification {...ctx}/>}
       {route==='search'&&<Search {...ctx} q={new URLSearchParams(hash.includes('?')?hash.slice(hash.indexOf('?')+1):'').get('q')||''} cat={new URLSearchParams(hash.includes('?')?hash.slice(hash.indexOf('?')+1):'').get('cat')||''}/>}
       {route==='p'&&<Detail id={arg} {...ctx}/>}
       {route==='shops'&&<Shops {...ctx}/>}
@@ -110,7 +113,7 @@ export default function App(){
       {route==='saved'&&<Saved {...ctx}/>}
       {route==='submit'&&<Submit {...ctx}/>}
       {route==='admin'&&<Admin {...ctx}/>}
-      {!['','search','p','shops','basket','saved','submit','admin','auth'].includes(route)&&<Empty t="Page not found" d="That page doesn't exist."/>}
+      {!['','community','messages','verification','search','p','shops','basket','saved','submit','admin','auth'].includes(route)&&<Empty t="Page not found" d="That page doesn't exist."/>}
     </main>
     <footer className="border-t bg-soft px-4 py-6 text-center text-xs text-mute">
       <section className="mx-auto mb-4 max-w-2xl rounded-2xl border border-emerald-100 bg-white px-5 py-4 text-left shadow-sm" aria-labelledby="creator-credit-title">
@@ -259,6 +262,18 @@ function Detail({id,...c}:C){
 
 function Shops(c:C){
   const list=[...c.shops].sort((a:any,b:any)=>c.dist(a)-c.dist(b))
+  const [shopFollows,setShopFollows]=useState<any[]>([])
+  const [followError,setFollowError]=useState('')
+  useEffect(()=>{let active=true;if(!c.account?.id){setShopFollows([]);setFollowError('');return()=>{active=false}}dbRequest<any[]>('shop_follows',{account:c.account,query:'select=shop_id,follower_id&limit=1000'}).then(rows=>{if(active)setShopFollows(rows||[])}).catch(e=>{if(active)setFollowError(e instanceof Error?e.message:'Shop follows are not available yet.')});return()=>{active=false}},[c.account?.id,c.shops.length])
+  const toggleShopFollow=async(shopId:string)=>{
+    if(!c.account?.id){setFollowError('Log in to follow shops.');return}
+    setFollowError('')
+    const exists=shopFollows.some((r:any)=>r.shop_id===shopId&&r.follower_id===c.account.id)
+    try{
+      if(exists){await dbRequest('shop_follows',{method:'DELETE',account:c.account,query:'shop_id=eq.'+encodeURIComponent(shopId)+'&follower_id=eq.'+encodeURIComponent(c.account.id),prefer:'return=minimal'});setShopFollows((rows:any[])=>rows.filter((r:any)=>!(r.shop_id===shopId&&r.follower_id===c.account.id)))}
+      else{await dbRequest('shop_follows',{method:'POST',account:c.account,query:'select=*',prefer:'return=minimal',body:{shop_id:shopId,follower_id:c.account.id}});setShopFollows((rows:any[])=>[...rows,{shop_id:shopId,follower_id:c.account.id}])}
+    }catch(e){setFollowError(e instanceof Error?e.message:'Could not update shop follow. Apply the shop-connect database migration first.')}
+  }
   const [formError,setFormError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false)
   const saveShop=async(e:FormEvent<HTMLFormElement>)=>{
     e.preventDefault();setFormError('');setNotice('')
@@ -284,6 +299,7 @@ function Shops(c:C){
   }
   return <div className="space-y-4"><h1 className="text-2xl font-extrabold">Shops around the world</h1><p className="text-sm text-mute">Register a real shop in any country. New registrations are shared through Supabase and remain pending until verified.</p>
     <MapView center={c.loc} loc={c.loc} shops={list}/>
+    {followError&&<p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{followError}</p>}
     <form className="card space-y-3" onSubmit={saveShop}><h2 className="font-bold">Register a real shop</h2>
       {!c.account&&<p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Log in first to submit a shop.</p>}
       <label className="block text-sm font-medium">Shop name<input required name="name" className="inp mt-1" placeholder="Real shop or business name"/></label>
@@ -296,7 +312,7 @@ function Shops(c:C){
       {notice&&<p role="status" className="rounded-lg bg-emerald-50 p-2 text-sm text-emerald-800">{notice}</p>}
       <button disabled={busy||!c.account} type="submit" className="btn w-full">{busy?'Saving…':'Submit shop for verification'}</button>
     </form>
-    {list.length?<ul className="grid gap-3 sm:grid-cols-2">{list.map((s:any)=><li key={s.id} className="card"><p className="flex flex-wrap items-center gap-2 font-semibold">{s.name}{s.verified&&<VerifiedBadge/>}</p><p className="text-sm text-mute">{s.area} · {c.dist(s).toFixed(1)} km away · {s.verified?'Verified':'Pending verification'}</p><div className="mt-3 flex flex-wrap gap-2">{s.verified&&s.phone&&<a className="btn2 inline-block" href={`tel:${s.phone}`}>Call shop</a>}{s.verified&&s.whatsapp&&<a className="btn2 inline-block" target="_blank" rel="noreferrer" href={`https://wa.me/${String(s.whatsapp).replace(/\D/g,'')}`}>WhatsApp shop</a>}<a className="btn2 inline-block" target="_blank" rel="noreferrer" href={`https://www.openstreetmap.org/directions?from=${c.loc.lat},${c.loc.lng}&to=${s.lat},${s.lng}`}>Get directions</a></div></li>)}</ul>:<Empty t="No verified shops in this view yet" d="There are no built-in sample shops. Real shops will appear here after they are registered and verified."/>}
+    {list.length?<ul className="grid gap-3 sm:grid-cols-2">{list.map((s:any)=><li key={s.id} className="card"><p className="flex flex-wrap items-center gap-2 font-semibold">{s.name}{s.verified&&<VerifiedBadge/>}</p><p className="text-sm text-mute">{s.area} · {c.dist(s).toFixed(1)} km away · {s.verified?'Verified':'Pending verification'}</p><div className="mt-3 flex flex-wrap gap-2"><button className="btn2 inline-block" disabled={!c.account} onClick={()=>void toggleShopFollow(s.id)}>{shopFollows.some((r:any)=>r.shop_id===s.id&&r.follower_id===c.account?.id)?'Following':'Follow shop'}</button>{s.owner_id&&s.owner_id!==c.account?.id&&<a className="btn2 inline-block" href={`#/messages?shop=${encodeURIComponent(s.id)}`}>Message shop</a>}{s.verified&&s.phone&&<a className="btn2 inline-block" href={`tel:${s.phone}`}>Call shop</a>}{s.verified&&s.whatsapp&&<a className="btn2 inline-block" target="_blank" rel="noreferrer" href={`https://wa.me/${String(s.whatsapp).replace(/\D/g,'')}`}>WhatsApp shop</a>}<a className="btn2 inline-block" target="_blank" rel="noreferrer" href={`https://www.openstreetmap.org/directions?from=${c.loc.lat},${c.loc.lng}&to=${s.lat},${s.lng}`}>Get directions</a></div></li>)}</ul>:<Empty t="No verified shops in this view yet" d="There are no built-in sample shops. Real shops will appear here after they are registered and verified."/>}
   </div>
 }
 function Basket(c:C){
@@ -325,6 +341,7 @@ function Admin(c:C){
   const [error,setError]=useState('')
   const [pendingShops,setPendingShops]=useState<any[]>([])
   const [pendingPrices,setPendingPrices]=useState<any[]>([])
+  const [pendingApplications,setPendingApplications]=useState<any[]>([])
   const [busyId,setBusyId]=useState('')
   const [notice,setNotice]=useState('')
 
@@ -333,13 +350,14 @@ function Admin(c:C){
     setChecking(true);setError('')
     try{
       const result=await dbRequest<boolean>('rpc/is_pricepulse_admin',{method:'POST',account:c.account,body:{}})
-      if(result!==true){setIsAdmin(false);setPendingShops([]);setPendingPrices([]);return}
+      if(result!==true){setIsAdmin(false);setPendingShops([]);setPendingPrices([]);setPendingApplications([]);return}
       setIsAdmin(true)
-      const [shops,prices]=await Promise.all([
+      const [shops,prices,applications]=await Promise.all([
         dbRequest<any[]>('shops',{account:c.account,query:'select=id,name,address,city,country,verification_status,created_at&verification_status=eq.pending&order=created_at.asc'}),
-        dbRequest<any[]>('price_reports',{account:c.account,query:'select=id,product_name,shop_name,location,country,currency_code,price,date_seen,verification_status,created_at&verification_status=eq.pending&order=created_at.asc'})
+        dbRequest<any[]>('price_reports',{account:c.account,query:'select=id,product_name,shop_name,location,country,currency_code,price,date_seen,verification_status,created_at&verification_status=eq.pending&order=created_at.asc'}),
+        dbRequest<any[]>('shop_verification_applications',{account:c.account,query:'select=id,shop_id,applicant_id,status,business_evidence,created_at,shop:shops(name,address,city,country)&status=eq.pending&order=created_at.asc'})
       ])
-      setPendingShops(shops||[]);setPendingPrices(prices||[])
+      setPendingShops(shops||[]);setPendingPrices(prices||[]);setPendingApplications(applications||[])
     }catch(e){
       setError(e instanceof Error?e.message:'Could not load administrator review queue.')
     }finally{setChecking(false)}
@@ -359,6 +377,18 @@ function Admin(c:C){
     finally{setBusyId('')}
   }
 
+
+  const reviewApplication=async(id:string,approved:boolean)=>{
+    if(!c.account||!isAdmin)return
+    setBusyId(id);setError('');setNotice('')
+    try{
+      await dbRequest('shop_verification_applications',{method:'PATCH',account:c.account,query:`id=eq.${encodeURIComponent(id)}&select=id`,prefer:'return=representation',body:{status:approved?'approved':'rejected',reviewed_at:new Date().toISOString()}})
+      setNotice(approved?'Shop verification application approved. The shop is now marked verified.':'Shop verification application rejected.')
+      await Promise.all([loadReviewQueue(),c.refreshSharedData()])
+    }catch(e){setError(e instanceof Error?e.message:'Could not review this shop verification application.')}
+    finally{setBusyId('')}
+  }
+
   if(checking)return <div className="mx-auto max-w-2xl space-y-3"><h1 className="text-2xl font-extrabold">Administrator review</h1><p className="text-sm text-mute">Checking secure administrator permissions…</p></div>
   if(!c.account)return <div className="mx-auto max-w-2xl space-y-3"><h1 className="text-2xl font-extrabold">Administrator review</h1><div className="rounded-xl bg-amber-50 p-4 text-sm text-amber-950">Please log in with your authorized administrator account to review submissions.</div><a className="btn inline-block" href="#/auth">Log in</a></div>
   if(!isAdmin)return <div className="mx-auto max-w-2xl space-y-4"><h1 className="text-2xl font-extrabold">Secure verification</h1><div className="rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-950"><b>This account does not have administrator approval permissions.</b> Only accounts explicitly authorized in Supabase can review shops and price reports.</div>{error&&<p role="alert" className="text-sm text-red-700">{error}</p>}<button className="btn2" onClick={()=>void loadReviewQueue()}>Check permissions again</button></div>
@@ -371,6 +401,17 @@ function Admin(c:C){
       {!pendingShops.length&&<p className="rounded-xl bg-soft p-4 text-sm text-mute">No pending shops to review.</p>}
       {pendingShops.map((s:any)=><article key={s.id} className="card space-y-2"><h3 className="font-semibold">{s.name}</h3><p className="text-sm text-mute">{s.address}, {s.city}, {s.country}</p><div className="flex flex-wrap gap-2"><button disabled={!!busyId} className="btn" onClick={()=>void review('shop',s.id,true)}>{busyId===s.id?'Saving…':'Approve shop'}</button><button disabled={!!busyId} className="btn2" onClick={()=>void review('shop',s.id,false)}>Reject</button></div></article>)}
     </section>
+    <section className="space-y-3"><h2 className="font-bold">Shop verification applications ({pendingApplications.length})</h2>
+      {!pendingApplications.length&&<p className="rounded-xl bg-soft p-4 text-sm text-mute">No pending shop verification applications.</p>}
+      {pendingApplications.map((a:any)=><article key={a.id} className="card space-y-2">
+        <h3 className="font-semibold">{a.shop?.name||'Shop verification request'}</h3>
+        <p className="text-sm text-mute">{[a.shop?.address,a.shop?.city,a.shop?.country].filter(Boolean).join(', ')||'Shop details unavailable'}</p>
+        <p className="text-sm">Free manual review · no payment required.</p>
+        <p className="whitespace-pre-wrap break-words text-sm">{a.business_evidence}</p>
+        <p className="text-xs text-mute">Submitted {new Date(a.created_at).toLocaleString()}</p>
+        <div className="flex flex-wrap gap-2"><button disabled={!!busyId} className="btn" onClick={()=>void reviewApplication(a.id,true)}>{busyId===a.id?'Saving…':'Approve verification'}</button><button disabled={!!busyId} className="btn2" onClick={()=>void reviewApplication(a.id,false)}>Reject application</button></div>
+      </article>)}
+    </section>
     <section className="space-y-3"><h2 className="font-bold">Pending price reports ({pendingPrices.length})</h2>
       {!pendingPrices.length&&<p className="rounded-xl bg-soft p-4 text-sm text-mute">No pending price reports to review.</p>}
       {pendingPrices.map((p:any)=><article key={p.id} className="card space-y-2"><h3 className="font-semibold">{p.product_name}</h3><p className="text-sm">{p.currency_code} {Number(p.price).toLocaleString()} · {p.shop_name}</p><p className="text-sm text-mute">{p.location}, {p.country} · Seen {p.date_seen}</p><div className="flex flex-wrap gap-2"><button disabled={!!busyId} className="btn" onClick={()=>void review('price',p.id,true)}>{busyId===p.id?'Saving…':'Approve price'}</button><button disabled={!!busyId} className="btn2" onClick={()=>void review('price',p.id,false)}>Reject</button></div></article>)}
@@ -378,6 +419,239 @@ function Admin(c:C){
   </div>
 }
 
+
+function Community(c:C){
+  const [posts,setPosts]=useState<any[]>([])
+  const [profiles,setProfiles]=useState<Record<string,any>>({})
+  const [following,setFollowing]=useState<string[]>([])
+  const [likes,setLikes]=useState<any[]>([])
+  const [comments,setComments]=useState<any[]>([])
+  const [draft,setDraft]=useState('')
+  const [commentDrafts,setCommentDrafts]=useState<Record<string,string>>({})
+  const [loading,setLoading]=useState(true)
+  const [busy,setBusy]=useState('')
+  const [error,setError]=useState('')
+  const [notice,setNotice]=useState('')
+
+  const load=async()=>{
+    setLoading(true);setError('')
+    try{
+      const postRows=await dbRequest<any[]>('community_posts',{account:c.account,query:'select=*&order=created_at.desc&limit=50'})
+      const postList=postRows||[]
+      const ids=postList.map((p:any)=>String(p.id)).filter(Boolean)
+      const userIds=[...new Set(postList.map((p:any)=>String(p.author_id)).filter(Boolean))]
+      const [followRows,likeRows,commentRows]=await Promise.all([
+        c.account?dbRequest<any[]>('user_follows',{account:c.account,query:'select=following_id&follower_id=eq.'+encodeURIComponent(c.account.id)}):Promise.resolve([]),
+        ids.length?dbRequest<any[]>('community_likes',{account:c.account,query:'select=post_id,user_id&post_id=in.('+ids.join(',')+')'}):Promise.resolve([]),
+        ids.length?dbRequest<any[]>('community_comments',{account:c.account,query:'select=*&post_id=in.('+ids.join(',')+')&order=created_at.asc&limit=200'}):Promise.resolve([])
+      ])
+      const commentUserIds=(commentRows||[]).map((x:any)=>String(x.user_id)).filter(Boolean)
+      const allUserIds=[...new Set([...userIds,...commentUserIds])]
+      let profileMap:Record<string,any>={}
+      if(allUserIds.length){
+        const profileRows=await dbRequest<any[]>('public_profiles',{account:c.account,query:'select=id,display_name,username,bio,avatar_url&id=in.('+allUserIds.join(',')+')'})
+        ;(profileRows||[]).forEach((p:any)=>{profileMap[p.id]=p})
+      }
+      setPosts(postList);setFollowing((followRows||[]).map((x:any)=>String(x.following_id)))
+      setLikes(likeRows||[]);setComments(commentRows||[]);setProfiles(profileMap)
+    }catch(e){setError(e instanceof Error?e.message:'Could not load the community.')}
+    finally{setLoading(false)}
+  }
+  useEffect(()=>{void load()},[c.account?.id,c.account?.access_token])
+
+  const createPost=async(e:FormEvent)=>{
+    e.preventDefault();setError('');setNotice('')
+    if(!c.account){setError('Please log in to publish a community post.');return}
+    const body=draft.trim()
+    if(!body){setError('Write something before posting.');return}
+    if(body.length>2000){setError('Keep posts to 2,000 characters or fewer.');return}
+    setBusy('post')
+    try{
+      await dbRequest('community_posts',{method:'POST',account:c.account,query:'select=*',prefer:'return=representation',body:{author_id:c.account.id,body}})
+      setDraft('');setNotice('Your post was published.');await load()
+    }catch(e){setError(e instanceof Error?e.message:'Could not publish your post.')}
+    finally{setBusy('')}
+  }
+  const toggleFollow=async(userId:string)=>{
+    if(!c.account){setError('Log in to follow people.');return}
+    if(userId===c.account.id)return
+    setError('');setNotice('');setBusy('follow:'+userId)
+    try{
+      if(following.includes(userId)){
+        await dbRequest('user_follows',{method:'DELETE',account:c.account,query:'follower_id=eq.'+encodeURIComponent(c.account.id)+'&following_id=eq.'+encodeURIComponent(userId)})
+        setFollowing(old=>old.filter(id=>id!==userId))
+      }else{
+        await dbRequest('user_follows',{method:'POST',account:c.account,query:'select=*',prefer:'return=minimal',body:{follower_id:c.account.id,following_id:userId}})
+        setFollowing(old=>[...old,userId])
+      }
+    }catch(e){setError(e instanceof Error?e.message:'Could not update your following list.')}
+    finally{setBusy('')}
+  }
+  const toggleLike=async(postId:string)=>{
+    if(!c.account){setError('Log in to like posts.');return}
+    const exists=likes.some((x:any)=>x.post_id===postId&&x.user_id===c.account.id)
+    setBusy('like:'+postId);setError('')
+    try{
+      if(exists){
+        await dbRequest('community_likes',{method:'DELETE',account:c.account,query:'post_id=eq.'+encodeURIComponent(postId)+'&user_id=eq.'+encodeURIComponent(c.account.id)})
+        setLikes(old=>old.filter((x:any)=>!(x.post_id===postId&&x.user_id===c.account.id)))
+      }else{
+        await dbRequest('community_likes',{method:'POST',account:c.account,query:'select=*',prefer:'return=minimal',body:{post_id:postId,user_id:c.account.id}})
+        setLikes(old=>[...old,{post_id:postId,user_id:c.account.id}])
+      }
+    }catch(e){setError(e instanceof Error?e.message:'Could not update like.')}
+    finally{setBusy('')}
+  }
+  const addComment=async(e:FormEvent,postId:string)=>{
+    e.preventDefault()
+    if(!c.account){setError('Log in to comment.');return}
+    const body=(commentDrafts[postId]||'').trim()
+    if(!body)return
+    if(body.length>1000){setError('Keep comments to 1,000 characters or fewer.');return}
+    setBusy('comment:'+postId);setError('')
+    try{
+      await dbRequest('community_comments',{method:'POST',account:c.account,query:'select=*',prefer:'return=minimal',body:{post_id:postId,user_id:c.account.id,body}})
+      setCommentDrafts(old=>({...old,[postId]:''}));await load()
+    }catch(e){setError(e instanceof Error?e.message:'Could not add your comment.')}
+    finally{setBusy('')}
+  }
+
+  return <div className="mx-auto max-w-3xl space-y-5">
+    <header><p className="text-xs font-extrabold uppercase tracking-[.16em] text-emerald-700">PricePulse social shopping</p><h1 className="mt-1 text-3xl font-black tracking-tight">Community</h1><p className="mt-2 text-sm leading-6 text-mute">Share shopping tips, follow contributors, and help one another make smarter buying decisions. Only real posts from users appear here.</p></header>
+    {error&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+    {notice&&<p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
+    <form className="card space-y-3" onSubmit={createPost}>
+      <label className="block text-sm font-bold" htmlFor="community-post">Share with the community</label>
+      <textarea id="community-post" className="inp min-h-28 resize-y" maxLength={2000} value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Share a shopping tip or tell the community what you learned…" disabled={!c.account||busy==='post'}/>
+      <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-xs text-mute">{draft.length}/2000 characters · Be kind. Never post private information.</span><button className="btn" disabled={!c.account||busy==='post'||!draft.trim()}>{busy==='post'?'Publishing…':'Publish post'}</button></div>
+      {!c.account&&<p className="text-xs text-amber-800">Log in to publish, follow, like, or comment. You can still read public community posts.</p>}
+    </form>
+    <div className="flex items-center justify-between gap-3"><h2 className="font-bold">Latest community posts</h2><button className="btn2 !py-1.5" onClick={()=>void load()} disabled={loading}>Refresh</button></div>
+    {loading?<div className="card text-sm text-mute">Loading community…</div>:posts.length===0?<div className="card py-10 text-center"><p className="text-3xl" aria-hidden="true">🌱</p><h3 className="mt-2 font-bold">Your community starts here</h3><p className="mt-1 text-sm text-mute">No community posts yet. Be the first to share a helpful shopping tip.</p></div>:<div className="space-y-4">{posts.map((p:any)=>{
+      const profile=profiles[p.author_id]||{}
+      const author=profile.display_name||profile.username||'PricePulse member'
+      const postLikes=likes.filter((x:any)=>x.post_id===p.id)
+      const liked=!!c.account&&postLikes.some((x:any)=>x.user_id===c.account.id)
+      const postComments=comments.filter((x:any)=>x.post_id===p.id)
+      return <article key={p.id} className="card space-y-3">
+        <div className="flex items-start justify-between gap-3"><div className="flex min-w-0 items-center gap-3"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-50 font-bold text-emerald-800" aria-hidden="true">{author.slice(0,1).toUpperCase()}</div><div className="min-w-0"><p className="font-bold">{author}</p><p className="text-xs text-mute">{new Date(p.created_at).toLocaleString()}</p></div></div>{c.account&&p.author_id!==c.account.id&&<button className="btn2 !px-3 !py-1.5 text-xs" disabled={busy==='follow:'+p.author_id} onClick={()=>void toggleFollow(p.author_id)}>{following.includes(p.author_id)?'Following':'Follow'}</button>}</div>
+        <p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-800">{p.body}</p>
+        <div className="flex flex-wrap items-center gap-3 border-y border-slate-100 py-2 text-sm"><button className={liked?'font-bold text-emerald-700':'text-slate-600'} aria-pressed={liked} disabled={!c.account||busy==='like:'+p.id} onClick={()=>void toggleLike(p.id)}>♥ {postLikes.length} {postLikes.length===1?'like':'likes'}</button><span className="text-xs text-mute">💬 {postComments.length} comments</span><span className="ml-auto text-[11px] text-mute">Community post</span></div>
+        <div className="space-y-2">{postComments.slice(-3).map((comment:any)=><div key={comment.id} className="rounded-xl bg-slate-50 px-3 py-2"><p className="text-xs font-bold">{profiles[comment.user_id]?.display_name||'PricePulse member'}</p><p className="mt-1 whitespace-pre-wrap break-words text-sm">{comment.body}</p></div>)}
+          {postComments.length>3&&<p className="text-xs text-mute">Showing the latest 3 of {postComments.length} comments.</p>}
+          <form className="flex gap-2" onSubmit={e=>void addComment(e,p.id)}><input aria-label="Write a comment" className="inp min-w-0" maxLength={1000} value={commentDrafts[p.id]||''} onChange={e=>setCommentDrafts(old=>({...old,[p.id]:e.target.value}))} placeholder={c.account?'Write a helpful comment…':'Log in to comment'} disabled={!c.account||busy==='comment:'+p.id}/><button className="btn2 shrink-0" disabled={!c.account||busy==='comment:'+p.id||!(commentDrafts[p.id]||'').trim()}>Reply</button></form>
+        </div>
+      </article>
+    })}</div>}
+    <p className="text-xs leading-5 text-mute">PricePulse is for helpful shopping conversations. Don’t post passwords, private contact details, or misleading prices. Report and moderation tools can be added before opening the community widely.</p>
+  </div>
+}
+
+
+function Messages({account,shops}:any){
+  const [shopId,setShopId]=useState('')
+  const [messages,setMessages]=useState<any[]>([])
+  const [draft,setDraft]=useState('')
+  const [loading,setLoading]=useState(false)
+  const [error,setError]=useState('')
+  const [notice,setNotice]=useState('')
+  const [busy,setBusy]=useState(false)
+  const selectedId=shopId||shops.find((s:any)=>s.id===new URLSearchParams(location.hash.includes('?')?location.hash.slice(location.hash.indexOf('?')+1):'').get('shop'))?.id||''
+  const shop=shops.find((s:any)=>s.id===selectedId)
+  const load=async()=>{
+    if(!account?.id){setMessages([]);return}
+    setLoading(true);setError('')
+    try{
+      const rows=await dbRequest<any[]>('shop_messages',{account,query:'select=*&or=(sender_id.eq.'+encodeURIComponent(account.id)+',recipient_id.eq.'+encodeURIComponent(account.id)+')&order=created_at.asc&limit=300'})
+      setMessages((rows||[]).filter((m:any)=>!selectedId||m.shop_id===selectedId))
+    }catch(e){setError(e instanceof Error?e.message:'Could not load messages. Apply the shop-connect database migration first.')}
+    finally{setLoading(false)}
+  }
+  useEffect(()=>{void load()},[account?.id,selectedId,shops.length])
+  const send=async(e:FormEvent)=>{
+    e.preventDefault();setError('');setNotice('')
+    if(!account?.id){setError('Log in to send messages.');return}
+    if(!shop){setError('Choose a shop first.');return}
+    const body=draft.trim()
+    if(!body){setError('Write a message first.');return}
+    let recipientId=shop.owner_id
+    if(account.id===shop.owner_id){
+      const prior=messages.find((m:any)=>m.shop_id===shop.id&&m.sender_id!==account.id)
+      if(!prior){setError('A customer must message this shop first before you can reply.');return}
+      recipientId=prior.sender_id
+    }
+    if(!recipientId||recipientId===account.id){setError('This shop does not have a messageable owner account.');return}
+    setBusy(true)
+    try{
+      await dbRequest('shop_messages',{method:'POST',account,query:'select=*',prefer:'return=minimal',body:{shop_id:shop.id,sender_id:account.id,recipient_id:recipientId,body}})
+      setDraft('');await load();setNotice('Message sent privately.')
+    }catch(e){setError(e instanceof Error?e.message:'Could not send the message.')}
+    finally{setBusy(false)}
+  }
+  if(!account?.id)return <Empty t="Log in to message shops" d="Private shop messages are available to signed-in customers and shop owners."/>
+  return <div className="mx-auto max-w-2xl space-y-4">
+    <header><p className="text-xs font-extrabold uppercase tracking-[.16em] text-emerald-700">Private conversations</p><h1 className="mt-1 text-3xl font-black">Messages</h1><p className="mt-2 text-sm text-mute">Ask a shop about product availability or current prices. Only the customer and shop owner can read their conversation.</p></header>
+    <label className="block text-sm font-semibold">Choose a shop<select className="inp mt-1" value={selectedId} onChange={e=>{setShopId(e.target.value);location.hash='#/messages?shop='+encodeURIComponent(e.target.value)}}><option value="">Select a shop</option>{shops.map((s:any)=><option key={s.id} value={s.id}>{s.name} — {s.area}</option>)}</select></label>
+    {error&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+    {notice&&<p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
+    <section className="card min-h-48 space-y-3">
+      {loading?<p className="text-sm text-mute">Loading messages…</p>:messages.length===0?<p className="py-8 text-center text-sm text-mute">No messages in this conversation yet. Open a shop and choose “Message shop” to start.</p>:messages.map((m:any)=><article key={m.id} className={'max-w-[90%] rounded-2xl px-4 py-3 text-sm '+(m.sender_id===account.id?'ml-auto bg-emerald-50':'bg-slate-100')}><p className="whitespace-pre-wrap break-words">{m.body}</p><p className="mt-1 text-[10px] text-slate-500">{m.sender_id===account.id?'You':'Shop/customer'} · {new Date(m.created_at).toLocaleString()}</p></article>)}
+    </section>
+    <form className="card flex flex-col gap-3 sm:flex-row" onSubmit={send}><textarea className="inp min-h-20 flex-1" maxLength={2000} value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Ask about price or availability…" disabled={!shop||busy}/><button className="btn self-end sm:self-stretch" disabled={!shop||busy||!draft.trim()}>{busy?'Sending…':'Send message'}</button></form>
+    <button className="btn2" onClick={()=>void load()} disabled={loading}>Refresh messages</button>
+  </div>
+}
+
+function ShopVerification({account,shops}:any){
+  const owned=(shops||[]).filter((s:any)=>s.owner_id===account?.id)
+  const [shopId,setShopId]=useState('')
+  const [evidence,setEvidence]=useState('')
+  const [applications,setApplications]=useState<any[]>([])
+  const [error,setError]=useState('')
+  const [notice,setNotice]=useState('')
+  const [busy,setBusy]=useState(false)
+
+  const load=async()=>{
+    if(!account?.id)return
+    try{
+      const rows=await dbRequest<any[]>('shop_verification_applications',{account,query:'select=id,shop_id,status,created_at&applicant_id=eq.'+encodeURIComponent(account.id)+'&order=created_at.desc'})
+      setApplications(rows||[])
+    }catch(e){setError(e instanceof Error?e.message:'Apply the shop-connect database migration before using verification.')}
+  }
+  useEffect(()=>{void load()},[account?.id])
+
+  const submit=async(e:FormEvent)=>{
+    e.preventDefault();setError('');setNotice('')
+    if(!account?.id){setError('Log in as the shop owner first.');return}
+    if(!shopId||!evidence.trim()||evidence.trim().length<10){setError('Choose your shop and provide at least 10 characters of business evidence.');return}
+    const shop=owned.find((s:any)=>s.id===shopId)
+    if(!shop){setError('Choose a shop registered to your account.');return}
+    setBusy(true)
+    try{
+      await dbRequest<any[]>('shop_verification_applications',{method:'POST',account,query:'select=id',prefer:'return=representation',body:{shop_id:shopId,applicant_id:account.id,business_evidence:evidence.trim(),status:'pending'}})
+      setEvidence('')
+      await load()
+      setNotice('Your application was submitted successfully. It is pending manual review. No payment is collected at this time.')
+    }catch(e){setError(e instanceof Error?e.message:'Could not submit your application.')}
+    finally{setBusy(false)}
+  }
+
+  if(!account?.id)return <Empty t="Log in as a shop owner" d="You need a shop owner account to apply for verification."/>
+  return <div className="mx-auto max-w-2xl space-y-4">
+    <header><p className="text-xs font-extrabold uppercase tracking-[.16em] text-blue-700">Shop trust</p><h1 className="mt-1 text-3xl font-black">Get your shop verified <VerifiedBadge/></h1><p className="mt-2 text-sm leading-6 text-mute">Apply for shop verification for free while PricePulse World is getting started. Every application is reviewed manually; submitting an application does not guarantee a blue badge.</p></header>
+    <section className="card"><p className="font-bold">Free manual review</p><p className="mt-1 text-sm text-mute">There is no paid plan or checkout enabled. Your shop will receive a verification badge only if the administrator approves your application.</p></section>
+    <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">Payments are disabled for now. You will not be asked to pay. Pricing and payment will be introduced only when the payment system is ready.</p>
+    {error&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+    {notice&&<p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
+    {!owned.length?<Empty t="Register your shop first" d="Once your real shop is submitted under your account, you can apply for verification."/>:<form className="card space-y-3" onSubmit={submit}>
+      <label className="block text-sm font-semibold">Your shop<select className="inp mt-1" required value={shopId} onChange={e=>setShopId(e.target.value)}><option value="">Choose a shop</option>{owned.map((s:any)=><option key={s.id} value={s.id}>{s.name} — {s.area}</option>)}</select></label>
+      <label className="block text-sm font-semibold">Business evidence<textarea className="inp mt-1 min-h-24" required minLength={10} maxLength={2000} value={evidence} onChange={e=>setEvidence(e.target.value)} placeholder="Describe the documents or evidence you can provide to show you own or manage this shop."/></label>
+      <p className="text-xs text-mute">Provide accurate business information. Your application will be reviewed manually, and no payment is required.</p>
+      <button className="btn w-full" disabled={busy}>{busy?'Submitting application…':'Submit free application'}</button>
+    </form>}
+    {applications.length>0&&<section className="space-y-2"><h2 className="font-bold">Your applications</h2>{applications.map((a:any)=><article key={a.id} className="card text-sm"><p className="font-semibold">{owned.find((s:any)=>s.id===a.shop_id)?.name||'Shop'} · Free verification review</p><p className="mt-1">Status: {String(a.status).replace('_',' ')}</p><p className="mt-1 text-xs text-mute">No payment is required or collected. Submitted {new Date(a.created_at).toLocaleDateString()}. A blue badge is added only after manual approval.</p></article>)}</section>}
+  </div>
+}
 function Submit(c:C){
   const blank=()=>({product:'',shop:'',area:'',price:'',date:new Date().toISOString().slice(0,10),country:c.country||'',currency:c.currency||'USD'})
   const [f,setF]=useState(blank),[done,setDone]=useState(false),[err,setErr]=useState(''),[busy,setBusy]=useState(false)
