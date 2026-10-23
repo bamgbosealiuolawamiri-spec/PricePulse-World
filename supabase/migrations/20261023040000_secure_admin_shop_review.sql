@@ -34,6 +34,19 @@ $$;
 revoke all on function public.is_pricepulse_admin() from public, anon;
 grant execute on function public.is_pricepulse_admin() to authenticated;
 
+-- Let the allow-listed administrator inspect pending shops and applications in the review queue.
+drop policy if exists "Authorized admins can read shops" on public.shops;
+create policy "Authorized admins can read shops"
+  on public.shops for select to authenticated
+  using (public.is_pricepulse_admin());
+
+drop policy if exists "Authorized admins can read shop verification applications"
+  on public.shop_verification_applications;
+create policy "Authorized admins can read shop verification applications"
+  on public.shop_verification_applications
+  for select to authenticated
+  using (public.is_pricepulse_admin());
+
 -- Applications can only be reviewed by the allow-listed administrator.
 drop policy if exists "Authorized admins can review shop verification applications"
   on public.shop_verification_applications;
