@@ -355,7 +355,7 @@ function Admin(c:C){
       const [shops,prices,applications]=await Promise.all([
         dbRequest<any[]>('shops',{account:c.account,query:'select=id,name,address,city,country,verification_status,created_at&verification_status=eq.pending&order=created_at.asc'}),
         dbRequest<any[]>('price_reports',{account:c.account,query:'select=id,product_name,shop_name,location,country,currency_code,price,date_seen,verification_status,created_at&verification_status=eq.pending&order=created_at.asc'}),
-        dbRequest<any[]>('shop_verification_applications',{account:c.account,query:'select=id,shop_id,applicant_id,plan,status,monthly_price_ngn,business_evidence,created_at,shop:shops(name,address,city,country)&status=eq.pending&order=created_at.asc'})
+        dbRequest<any[]>('shop_verification_applications',{account:c.account,query:'select=id,shop_id,applicant_id,status,business_evidence,created_at,shop:shops(name,address,city,country)&status=eq.pending&order=created_at.asc'})
       ])
       setPendingShops(shops||[]);setPendingPrices(prices||[]);setPendingApplications(applications||[])
     }catch(e){
