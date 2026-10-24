@@ -87,11 +87,19 @@ export default function App(){
     <header className="sticky top-0 z-40 border-b bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
         <a href="#/" className="flex items-center gap-2 font-extrabold text-deep" aria-label="PricePulse World home"><span className="grid h-9 w-9 place-items-center overflow-hidden rounded-xl bg-[#063D2C] shadow-sm"><svg aria-hidden="true" viewBox="0 0 100 100" className="h-full w-full"><defs><linearGradient id="ppIconGreen" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#9AF542"/><stop offset="1" stopColor="#00B969"/></linearGradient></defs><path d="M28 13h29c19 0 30 11 30 28S76 69 57 69H45v18H28z" fill="#fff"/><circle cx="57" cy="42" r="16" fill="#063D2C" stroke="#00B969" strokeWidth="3"/><path d="M45 42a12 12 0 0 1 24 0M57 30c-7 8-7 16 0 24M45 42h24" fill="none" stroke="#7EF044" strokeWidth="2"/><path d="M8 48l17-15 16 16-17 18z" fill="url(#ppIconGreen)" stroke="#063D2C" strokeWidth="2"/><path d="M17 47h14m-7-7v19" stroke="#fff" strokeWidth="3" strokeLinecap="round"/><rect x="62" y="70" width="7" height="14" rx="2" fill="#7EF044"/><rect x="73" y="65" width="7" height="19" rx="2" fill="#43E65A"/><rect x="84" y="59" width="7" height="25" rx="2" fill="#00B969"/></svg></span><span>PricePulse <span className="text-brand">World</span></span></a>
-        <nav className="hidden gap-1 md:flex" aria-label="Main">{links.map(([h,l])=><a key={h} href={'#/'+h} className={`rounded-lg px-3 py-2 text-sm font-medium hover:bg-soft ${route===h?'bg-soft text-deep':'text-mute'}`}>{l}{h==='basket'&&Object.keys(basket).length?` (${Object.keys(basket).length})`:''}</a>)}</nav>
-        <button className="hidden text-xs font-semibold text-mute underline lg:block" onClick={()=>setEntryRole(null)}>Switch role</button>
-        <button className="btn2 md:hidden" aria-expanded={menu} aria-label="Toggle menu" onClick={()=>setMenu(!menu)}>{menu?'✕':'☰'}</button>
+        <div className="flex items-center gap-2">
+          <a href="#/search" className="btn2 !px-3 !py-2" aria-label="Search prices and shops"><span aria-hidden="true">⌕</span><span className="hidden sm:inline">Search</span></a>
+          <a href="#/messages" className="btn2 !px-3 !py-2" aria-label="Open messages"><span aria-hidden="true">✉</span><span className="hidden sm:inline">Messages</span></a>
+          <a href="#/submit" className="btn !px-3 !py-2 text-sm">Submit price <span aria-hidden="true">＋</span></a>
+          <button className="btn2 !px-3 !py-2" aria-expanded={menu} aria-label="Open main menu" onClick={()=>setMenu(!menu)}>{menu?'✕':'☰'}</button>
+        </div>
       </div>
-      {menu&&<nav className="grid gap-1 border-t p-3 md:hidden" aria-label="Mobile">{links.map(([h,l])=><a key={h} href={'#/'+h} onClick={()=>setMenu(false)} className="rounded-lg px-3 py-3 font-medium hover:bg-soft">{l}</a>)}</nav>}
+      {menu&&<nav className="border-t bg-white p-4 shadow-lg" aria-label="Main menu">
+        <div className="mx-auto grid max-w-5xl grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+          {links.filter(([h])=>h!=='submit').map(([h,l])=><a key={h} href={'#/'+h} onClick={()=>setMenu(false)} className={`rounded-xl border px-4 py-3 text-sm font-semibold hover:bg-soft ${route===h?'border-emerald-300 bg-soft text-deep':'border-slate-100 text-slate-700'}`}>{h==='community'?'👥 ':h==='search'?'🔎 ':h==='shops'?'🏪 ':h==='messages'?'💬 ':h==='verification'?'✅ ':h==='basket'?'🧺 ':h==='saved'?'♡ ':h==='admin'?'🛡️ ':h==='auth'?'👤 ':'🏠 '}{l}{h==='basket'&&Object.keys(basket).length?` (${Object.keys(basket).length})`:''}</a>)}
+          <button className="rounded-xl border border-slate-100 px-4 py-3 text-left text-sm font-semibold text-slate-700 hover:bg-soft" onClick={()=>{setEntryRole(null);setMenu(false)}}>⇄ Switch role</button>
+        </div>
+      </nav>}
     </header>
     <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">
       <div className="mb-4 flex flex-wrap items-center gap-2 text-sm"><span className="text-mute">🌍 Market</span>
@@ -552,31 +560,55 @@ function Messages({account,shops}:any){
   const [shopId,setShopId]=useState('')
   const [messages,setMessages]=useState<any[]>([])
   const [draft,setDraft]=useState('')
+  const [search,setSearch]=useState('')
   const [loading,setLoading]=useState(false)
   const [error,setError]=useState('')
   const [notice,setNotice]=useState('')
   const [busy,setBusy]=useState(false)
-  const selectedId=shopId||shops.find((s:any)=>s.id===new URLSearchParams(location.hash.includes('?')?location.hash.slice(location.hash.indexOf('?')+1):'').get('shop'))?.id||''
+  const queryShop=new URLSearchParams(location.hash.includes('?')?location.hash.slice(location.hash.indexOf('?')+1):'').get('shop')||''
+  const selectedId=shopId||queryShop
+  const [selectedOther,setSelectedOther]=useState('')
   const shop=shops.find((s:any)=>s.id===selectedId)
   const load=async()=>{
     if(!account?.id){setMessages([]);return}
     setLoading(true);setError('')
     try{
-      const rows=await dbRequest<any[]>('shop_messages',{account,query:'select=*&or=(sender_id.eq.'+encodeURIComponent(account.id)+',recipient_id.eq.'+encodeURIComponent(account.id)+')&order=created_at.asc&limit=300'})
-      setMessages((rows||[]).filter((m:any)=>!selectedId||m.shop_id===selectedId))
-    }catch(e){setError(e instanceof Error?e.message:'Could not load messages. Apply the shop-connect database migration first.')}
+      const rows=await dbRequest<any[]>('shop_messages',{account,query:'select=*&or=(sender_id.eq.'+encodeURIComponent(account.id)+',recipient_id.eq.'+encodeURIComponent(account.id)+')&order=created_at.asc&limit=500'})
+      setMessages(rows||[])
+    }catch(e){setError(e instanceof Error?e.message:'Could not load messages. Please check the shop messaging database setup.')}
     finally{setLoading(false)}
   }
-  useEffect(()=>{void load()},[account?.id,selectedId,shops.length])
+  useEffect(()=>{void load()},[account?.id])
+  const conversations=useMemo(()=>{
+    const map=new Map<string,any>()
+    messages.forEach((m:any)=>{
+      const otherId=m.sender_id===account?.id?m.recipient_id:m.sender_id
+      const key=String(m.shop_id)+'::'+String(otherId)
+      const existing=map.get(key)
+      if(!existing||new Date(m.created_at).getTime()>new Date(existing.last.created_at).getTime())map.set(key,{key,shopId:m.shop_id,otherId,last:m,all:messages.filter((x:any)=>x.shop_id===m.shop_id&&(x.sender_id===account?.id?x.recipient_id:x.sender_id)===otherId)})
+    })
+    return [...map.values()].sort((a,b)=>new Date(b.last.created_at).getTime()-new Date(a.last.created_at).getTime())
+  },[messages,account?.id])
+  const selected=conversations.find((c:any)=>c.shopId===selectedId&&(!selectedOther||c.otherId===selectedOther))||conversations.find((c:any)=>c.shopId===selectedId)||null
+  const activeMessages=selected?messages.filter((m:any)=>m.shop_id===selected.shopId&&(m.sender_id===account.id?m.recipient_id:m.sender_id)===selected.otherId):[]
+  const filtered=conversations.filter((c:any)=>{
+    const title=shops.find((s:any)=>s.id===c.shopId)?.name||'Shop conversation'
+    const other=c.last.sender_id===account?.id?'You':(shops.find((s:any)=>s.id===c.shopId)?.owner_id===c.otherId?'Shop owner':'Customer')
+    return (title+' '+other+' '+c.last.body).toLowerCase().includes(search.toLowerCase())
+  })
+  const selectConversation=(c:any)=>{
+    setShopId(c.shopId);setSelectedOther(c.otherId);setDraft('');setError('');setNotice('')
+    location.hash='#/messages?shop='+encodeURIComponent(c.shopId)
+  }
   const send=async(e:FormEvent)=>{
     e.preventDefault();setError('');setNotice('')
     if(!account?.id){setError('Log in to send messages.');return}
     if(!shop){setError('Choose a shop first.');return}
     const body=draft.trim()
     if(!body){setError('Write a message first.');return}
-    let recipientId=shop.owner_id
+    let recipientId=selected?.otherId||shop.owner_id
     if(account.id===shop.owner_id){
-      const prior=messages.find((m:any)=>m.shop_id===shop.id&&m.sender_id!==account.id)
+      const prior=messages.find((m:any)=>m.shop_id===shop.id&&m.sender_id!==account.id&&m.recipient_id===account.id&&(!selectedOther||m.sender_id===selectedOther))
       if(!prior){setError('A customer must message this shop first before you can reply.');return}
       recipientId=prior.sender_id
     }
@@ -589,16 +621,36 @@ function Messages({account,shops}:any){
     finally{setBusy(false)}
   }
   if(!account?.id)return <Empty t="Log in to message shops" d="Private shop messages are available to signed-in customers and shop owners."/>
-  return <div className="mx-auto max-w-2xl space-y-4">
-    <header><p className="text-xs font-extrabold uppercase tracking-[.16em] text-emerald-700">Private conversations</p><h1 className="mt-1 text-3xl font-black">Messages</h1><p className="mt-2 text-sm text-mute">Ask a shop about product availability or current prices. Only the customer and shop owner can read their conversation.</p></header>
-    <label className="block text-sm font-semibold">Choose a shop<select className="inp mt-1" value={selectedId} onChange={e=>{setShopId(e.target.value);location.hash='#/messages?shop='+encodeURIComponent(e.target.value)}}><option value="">Select a shop</option>{shops.map((s:any)=><option key={s.id} value={s.id}>{s.name} — {s.area}</option>)}</select></label>
+  return <div className="space-y-4">
+    <header className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-extrabold uppercase tracking-[.16em] text-emerald-700">PricePulse Connect</p><h1 className="mt-1 text-3xl font-black">Messages</h1><p className="mt-1 text-sm text-mute">Your conversations with customers and shops, in one inbox.</p></div><a className="btn" href="#/shops">Find shops <span aria-hidden="true">→</span></a></header>
     {error&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
     {notice&&<p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
-    <section className="card min-h-48 space-y-3">
-      {loading?<p className="text-sm text-mute">Loading messages…</p>:messages.length===0?<p className="py-8 text-center text-sm text-mute">No messages in this conversation yet. Open a shop and choose “Message shop” to start.</p>:messages.map((m:any)=><article key={m.id} className={'max-w-[90%] rounded-2xl px-4 py-3 text-sm '+(m.sender_id===account.id?'ml-auto bg-emerald-50':'bg-slate-100')}><p className="whitespace-pre-wrap break-words">{m.body}</p><p className="mt-1 text-[10px] text-slate-500">{m.sender_id===account.id?'You':'Shop/customer'} · {new Date(m.created_at).toLocaleString()}</p></article>)}
+    <section className="grid min-h-[540px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm md:grid-cols-[300px_minmax(0,1fr)]">
+      <aside className={`border-b border-slate-200 md:border-b-0 md:border-r ${selected?'hidden md:block':''}`}>
+        <div className="border-b p-4"><div className="flex items-center justify-between"><h2 className="font-extrabold">Chats</h2><span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-800">{conversations.length}</span></div><label className="mt-3 flex items-center gap-2 rounded-xl border bg-slate-50 px-3"><span aria-hidden="true">⌕</span><input aria-label="Search conversations" className="min-w-0 flex-1 bg-transparent py-2 text-sm outline-none" placeholder="Search chats" value={search} onChange={e=>setSearch(e.target.value)}/></label><a href="#/shops" className="mt-3 block rounded-xl bg-emerald-700 px-3 py-2 text-center text-sm font-bold text-white hover:bg-emerald-800">＋ New message</a></div>
+        <div className="max-h-[460px] overflow-y-auto">
+          {loading&&<p className="p-4 text-sm text-mute">Loading conversations…</p>}
+          {!loading&&filtered.length===0&&<div className="p-5 text-center"><div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-emerald-50 text-xl">💬</div><p className="mt-3 text-sm font-bold">{search?'No matching chats':'No conversations yet'}</p><p className="mt-1 text-xs leading-5 text-mute">Message a shop to start a conversation. Replies will appear here.</p><a href="#/shops" className="mt-3 inline-block text-sm font-bold text-emerald-800 underline">Browse shops</a></div>}
+          {filtered.map((c:any)=>{
+            const itemShop=shops.find((s:any)=>s.id===c.shopId)
+            const title=itemShop?.name||'PricePulse conversation'
+            const other=c.last.sender_id===account.id?'You':(itemShop?.owner_id===c.otherId?'Shop owner':'Customer')
+            const active=selected?.key===c.key
+            return <button key={c.key} onClick={()=>selectConversation(c)} className={`flex w-full items-center gap-3 border-b border-slate-100 p-3 text-left hover:bg-slate-50 ${active?'bg-emerald-50':''}`}>
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-emerald-100 font-extrabold text-emerald-900">{title.slice(0,1).toUpperCase()}</span>
+              <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate text-sm font-bold">{title}</span><span className="shrink-0 text-[10px] text-slate-400">{new Date(c.last.created_at).toLocaleDateString()}</span></span><span className="mt-1 block truncate text-xs text-slate-500">{other}: {c.last.body}</span></span>
+            </button>
+          })}
+        </div>
+      </aside>
+      <div className={`min-w-0 flex-col ${selected?'flex':'hidden md:flex'}`}>
+        {selected&&shop?<><div className="flex items-center gap-3 border-b p-4"><button className="btn2 md:hidden" onClick={()=>{setShopId('');setSelectedOther('')}} aria-label="Back to conversations">←</button><span className="grid h-10 w-10 place-items-center rounded-full bg-emerald-100 font-extrabold text-emerald-900">{shop.name.slice(0,1).toUpperCase()}</span><div className="min-w-0 flex-1"><h2 className="truncate font-extrabold">{shop.name}</h2><p className="truncate text-xs text-mute">{shop.area}</p></div><span className="text-xs font-semibold text-emerald-800">Private chat</span></div>
+          <div className="flex-1 space-y-3 overflow-y-auto bg-slate-50/70 p-4" aria-live="polite">{activeMessages.map((m:any)=><article key={m.id} className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm ${m.sender_id===account.id?'ml-auto rounded-br-sm bg-emerald-700 text-white':'rounded-bl-sm border bg-white text-slate-800'}`}><p className="whitespace-pre-wrap break-words">{m.body}</p><p className={`mt-1 text-[10px] ${m.sender_id===account.id?'text-emerald-100':'text-slate-400'}`}>{m.sender_id===account.id?'You':(shop.owner_id===m.sender_id?'Shop':'Customer')} · {new Date(m.created_at).toLocaleString()}</p></article>)}</div>
+          <form className="flex items-end gap-2 border-t bg-white p-3" onSubmit={send}><textarea className="inp min-h-12 flex-1 resize-y" maxLength={2000} value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Write a message…" disabled={busy}/><button className="btn" disabled={busy||!draft.trim()}>{busy?'Sending…':'Send ➤'}</button></form>
+        </>:<div className="flex flex-1 flex-col items-center justify-center p-8 text-center"><span className="grid h-16 w-16 place-items-center rounded-full bg-emerald-50 text-3xl">💬</span><h2 className="mt-4 text-lg font-extrabold">Your messages, together</h2><p className="mt-2 max-w-sm text-sm leading-6 text-mute">Choose a conversation from the list, or find a shop to send the first message. Your private conversations will stay in this inbox.</p><a href="#/shops" className="btn mt-4">Find a shop</a></div>}
+      </div>
     </section>
-    <form className="card flex flex-col gap-3 sm:flex-row" onSubmit={send}><textarea className="inp min-h-20 flex-1" maxLength={2000} value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Ask about price or availability…" disabled={!shop||busy}/><button className="btn self-end sm:self-stretch" disabled={!shop||busy||!draft.trim()}>{busy?'Sending…':'Send message'}</button></form>
-    <button className="btn2" onClick={()=>void load()} disabled={loading}>Refresh messages</button>
+    <div className="flex justify-end"><button className="btn2" onClick={()=>void load()} disabled={loading}>↻ Refresh inbox</button></div>
   </div>
 }
 
