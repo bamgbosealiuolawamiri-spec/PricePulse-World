@@ -90,3 +90,118 @@
     @apply h-24 animate-pulse rounded-2xl bg-slate-100;
   }
 }
+
+
+/* Native mobile presentation: the website keeps its existing layout. */
+.native-app {
+  --native-green: #0ba95b;
+  --native-deep: #063d2c;
+  --native-canvas: #f5f8f6;
+}
+.native-app html,
+html.native-app {
+  background: var(--native-canvas);
+  overscroll-behavior-y: contain;
+}
+body.native-app {
+  background: var(--native-canvas);
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+}
+.native-app #root > div > header {
+  padding-top: 2px;
+  box-shadow: 0 4px 22px rgb(6 61 44 / 0.055);
+}
+.native-app #root > div > header > div:first-child {
+  padding-top: 11px;
+  padding-bottom: 11px;
+}
+.native-app #root > div > header a[aria-label="PricePulse World home"] {
+  letter-spacing: -0.035em;
+}
+.native-app #main {
+  padding-top: 18px;
+  padding-bottom: 28px;
+}
+.native-app .card {
+  border-radius: 22px;
+  border-color: #e5eee8;
+  box-shadow: 0 5px 22px rgb(6 61 44 / 0.045);
+}
+.native-app .btn,
+.native-app .btn2 {
+  min-height: 46px;
+  border-radius: 15px;
+}
+.native-app .inp,
+.native-app input,
+.native-app select,
+.native-app textarea {
+  min-height: 46px;
+  border-radius: 14px;
+}
+.native-app .native-tabbar {
+  position: fixed;
+  z-index: 60;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 2px;
+  padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid rgb(6 61 44 / 0.09);
+  background: rgb(255 255 255 / 0.96);
+  box-shadow: 0 -10px 32px rgb(6 61 44 / 0.07);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+.native-app .native-tabbar a {
+  display: flex;
+  min-width: 0;
+  min-height: 52px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border-radius: 15px;
+  color: #75827a;
+  font-size: 10px;
+  font-weight: 650;
+  text-decoration: none;
+}
+.native-app .native-tabbar a.active {
+  background: #e8f8ef;
+  color: var(--native-deep);
+}
+.native-app .native-tab-icon {
+  display: grid;
+  width: 26px;
+  height: 25px;
+  place-items: center;
+  font-size: 23px;
+  line-height: 1;
+}
+.native-app #root > div > footer {
+  padding-bottom: 22px;
+}
+@media (min-width: 700px) {
+  .native-app .native-tabbar {
+    right: auto;
+    left: 50%;
+    width: min(520px, calc(100% - 32px));
+    transform: translateX(-50%);
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    border: 1px solid rgb(6 61 44 / 0.12);
+    border-radius: 22px;
+    padding: 8px 10px;
+  }
+  body.native-app {
+    padding-bottom: 104px;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .native-app .native-tabbar a:active {
+    transform: scale(0.97);
+  }
+}
