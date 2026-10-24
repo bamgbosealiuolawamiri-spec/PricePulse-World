@@ -38,10 +38,15 @@ After the native project has been generated once, run `npm run mobile:sync` to r
 
 ## Design direction
 
-- Deep forest green with bright green accents and soft neutral backgrounds.
-- Native-feeling bottom navigation for Home, Explore, Shops, Saved and Account.
-- Comfortable touch targets, rounded cards and inputs, and safe-area spacing.
-- Keep web-only presentation unchanged.
+**Premium Green + Fresh Modern** — a friendly, polished shopping companion, not a banking interface.
+
+- Deep forest green, fresh green accents, warm white surfaces, and soft neutral backgrounds.
+- A welcoming onboarding screen with clear customer, shop-owner, and guest choices.
+- A bold but readable home hero, a simple product search, category shortcuts, and calm, rounded cards.
+- Friendly copy such as “Find the right price. Shop with confidence.”, “What are you looking for?”, “Find prices”, and “Share a price”.
+- Native-feeling bottom navigation for Home, Explore, Shops, Saved, and Account.
+- Comfortable touch targets, readable 16px mobile inputs, and safe-area spacing for Android and iPhone.
+- The mobile-only visual styles stay scoped to native app mode; the website layout is not redesigned by those styles.
 
 ## Release readiness
 
