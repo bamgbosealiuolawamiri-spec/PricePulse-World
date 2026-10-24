@@ -559,6 +559,9 @@ function Community(c:C){
 function Messages({account,shops}:any){
   const [shopId,setShopId]=useState('')
   const [messages,setMessages]=useState<any[]>([])
+  const [archives,setArchives]=useState<any[]>([])
+  const [blockedIds,setBlockedIds]=useState<string[]>([])
+  const [inboxView,setInboxView]=useState<'inbox'|'archived'>('inbox')
   const [draft,setDraft]=useState('')
   const [search,setSearch]=useState('')
   const [loading,setLoading]=useState(false)
@@ -575,6 +578,11 @@ function Messages({account,shops}:any){
     try{
       const rows=await dbRequest<any[]>('shop_messages',{account,query:'select=*&or=(sender_id.eq.'+encodeURIComponent(account.id)+',recipient_id.eq.'+encodeURIComponent(account.id)+')&order=created_at.asc&limit=500'})
       setMessages(rows||[])
+      const [archiveRows,blockRows]=await Promise.all([
+        dbRequest<any[]>('shop_message_archives',{account,query:'select=shop_id,other_user_id&user_id=eq.'+encodeURIComponent(account.id)}).catch(()=>[]),
+        dbRequest<any[]>('user_blocks',{account,query:'select=blocked_id&blocker_id=eq.'+encodeURIComponent(account.id)}).catch(()=>[])
+      ])
+      setArchives(archiveRows||[]);setBlockedIds((blockRows||[]).map((r:any)=>r.blocked_id))
     }catch(e){setError(e instanceof Error?e.message:'Could not load messages. Please check the shop messaging database setup.')}
     finally{setLoading(false)}
   }
@@ -591,11 +599,38 @@ function Messages({account,shops}:any){
   },[messages,account?.id])
   const selected=conversations.find((c:any)=>c.shopId===selectedId&&(!selectedOther||c.otherId===selectedOther))||conversations.find((c:any)=>c.shopId===selectedId)||null
   const activeMessages=selected?messages.filter((m:any)=>m.shop_id===selected.shopId&&(m.sender_id===account.id?m.recipient_id:m.sender_id)===selected.otherId):[]
-  const filtered=conversations.filter((c:any)=>{
+  const archived=(c:any)=>archives.some((a:any)=>a.shop_id===c.shopId&&a.other_user_id===c.otherId)
+  const filtered=conversations.filter((c:any)=>inboxView==='archived'?archived(c):!archived(c)).filter((c:any)=>{
     const title=shops.find((s:any)=>s.id===c.shopId)?.name||'Shop conversation'
     const other=c.last.sender_id===account?.id?'You':(shops.find((s:any)=>s.id===c.shopId)?.owner_id===c.otherId?'Shop owner':'Customer')
     return (title+' '+other+' '+c.last.body).toLowerCase().includes(search.toLowerCase())
   })
+  const toggleArchive=async()=>{
+    if(!selected||!account?.id)return
+    setError('');setNotice('')
+    try{
+      if(archived(selected)){
+        await dbRequest('shop_message_archives',{method:'DELETE',account,query:'user_id=eq.'+encodeURIComponent(account.id)+'&shop_id=eq.'+encodeURIComponent(selected.shopId)+'&other_user_id=eq.'+encodeURIComponent(selected.otherId),prefer:'return=minimal'})
+        setArchives(old=>old.filter((a:any)=>!(a.shop_id===selected.shopId&&a.other_user_id===selected.otherId)));setNotice('Conversation restored to your inbox.')
+      }else{
+        await dbRequest('shop_message_archives',{method:'POST',account,query:'select=*',prefer:'return=minimal',body:{user_id:account.id,shop_id:selected.shopId,other_user_id:selected.otherId}})
+        setArchives(old=>[...old,{shop_id:selected.shopId,other_user_id:selected.otherId}]);setNotice('Conversation archived. Your messages were not deleted.')
+      }
+    }catch(e){setError(e instanceof Error?e.message:'Apply the user blocks and archives database migration first.')}
+  }
+  const toggleBlock=async()=>{
+    if(!selected||!account?.id)return
+    setError('');setNotice('')
+    try{
+      if(blockedIds.includes(selected.otherId)){
+        await dbRequest('user_blocks',{method:'DELETE',account,query:'blocker_id=eq.'+encodeURIComponent(account.id)+'&blocked_id=eq.'+encodeURIComponent(selected.otherId),prefer:'return=minimal'})
+        setBlockedIds(old=>old.filter(id=>id!==selected.otherId));setNotice('User unblocked.')
+      }else{
+        await dbRequest('user_blocks',{method:'POST',account,query:'select=*',prefer:'return=minimal',body:{blocker_id:account.id,blocked_id:selected.otherId}})
+        setBlockedIds(old=>[...old,selected.otherId]);setNotice('User blocked. The database will reject messages between these accounts.')
+      }
+    }catch(e){setError(e instanceof Error?e.message:'Apply the user blocks and archives database migration first.')}
+  }
   const selectConversation=(c:any)=>{
     setShopId(c.shopId);setSelectedOther(c.otherId);setDraft('');setError('');setNotice('')
     location.hash='#/messages?shop='+encodeURIComponent(c.shopId)
@@ -627,7 +662,7 @@ function Messages({account,shops}:any){
     {notice&&<p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
     <section className="grid min-h-[540px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm md:grid-cols-[300px_minmax(0,1fr)]">
       <aside className={`border-b border-slate-200 md:border-b-0 md:border-r ${selected?'hidden md:block':''}`}>
-        <div className="border-b p-4"><div className="flex items-center justify-between"><h2 className="font-extrabold">Chats</h2><span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-800">{conversations.length}</span></div><label className="mt-3 flex items-center gap-2 rounded-xl border bg-slate-50 px-3"><span aria-hidden="true">⌕</span><input aria-label="Search conversations" className="min-w-0 flex-1 bg-transparent py-2 text-sm outline-none" placeholder="Search chats" value={search} onChange={e=>setSearch(e.target.value)}/></label><a href="#/shops" className="mt-3 block rounded-xl bg-emerald-700 px-3 py-2 text-center text-sm font-bold text-white hover:bg-emerald-800">＋ New message</a></div>
+        <div className="border-b p-4"><div className="flex items-center justify-between"><h2 className="font-extrabold">{inboxView==='archived'?'Archived':'Chats'}</h2><span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-800">{filtered.length}</span></div><label className="mt-3 flex items-center gap-2 rounded-xl border bg-slate-50 px-3"><span aria-hidden="true">⌕</span><input aria-label="Search conversations" className="min-w-0 flex-1 bg-transparent py-2 text-sm outline-none" placeholder="Search chats" value={search} onChange={e=>setSearch(e.target.value)}/></label><div className="mt-3 grid grid-cols-2 gap-2"><button type="button" className="btn2 !px-2 !py-2 text-xs" onClick={()=>{setInboxView('inbox');setShopId('');setSelectedOther('')}}>Inbox</button><button type="button" className="btn2 !px-2 !py-2 text-xs" onClick={()=>{setInboxView('archived');setShopId('');setSelectedOther('')}}>Archived ({archives.length})</button></div><a href="#/shops" className="mt-3 block rounded-xl bg-emerald-700 px-3 py-2 text-center text-sm font-bold text-white hover:bg-emerald-800">＋ New message</a></div>
         <div className="max-h-[460px] overflow-y-auto">
           {loading&&<p className="p-4 text-sm text-mute">Loading conversations…</p>}
           {!loading&&filtered.length===0&&<div className="p-5 text-center"><div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-emerald-50 text-xl">💬</div><p className="mt-3 text-sm font-bold">{search?'No matching chats':'No conversations yet'}</p><p className="mt-1 text-xs leading-5 text-mute">Message a shop to start a conversation. Replies will appear here.</p><a href="#/shops" className="mt-3 inline-block text-sm font-bold text-emerald-800 underline">Browse shops</a></div>}
@@ -644,7 +679,7 @@ function Messages({account,shops}:any){
         </div>
       </aside>
       <div className={`min-w-0 flex-col ${selected?'flex':'hidden md:flex'}`}>
-        {selected&&shop?<><div className="flex items-center gap-3 border-b p-4"><button className="btn2 md:hidden" onClick={()=>{setShopId('');setSelectedOther('')}} aria-label="Back to conversations">←</button><span className="grid h-10 w-10 place-items-center rounded-full bg-emerald-100 font-extrabold text-emerald-900">{shop.name.slice(0,1).toUpperCase()}</span><div className="min-w-0 flex-1"><h2 className="truncate font-extrabold">{shop.name}</h2><p className="truncate text-xs text-mute">{shop.area}</p></div><span className="text-xs font-semibold text-emerald-800">Private chat</span></div>
+        {selected&&shop?<><div className="flex flex-wrap items-center gap-3 border-b p-4"><button className="btn2 md:hidden" onClick={()=>{setShopId('');setSelectedOther('')}} aria-label="Back to conversations">←</button><span className="grid h-10 w-10 place-items-center rounded-full bg-emerald-100 font-extrabold text-emerald-900">{shop.name.slice(0,1).toUpperCase()}</span><div className="min-w-0 flex-1"><h2 className="truncate font-extrabold">{shop.name}</h2><p className="truncate text-xs text-mute">{shop.area}</p></div><div className="ml-auto flex flex-wrap gap-2"><button type="button" className="btn2 !px-2 !py-2 text-xs" onClick={()=>void toggleArchive()}>{archived(selected)?'Restore':'Archive'}</button><button type="button" className="btn2 !px-2 !py-2 text-xs" onClick={()=>void toggleBlock()}>{blockedIds.includes(selected.otherId)?'Unblock user':'Block user'}</button></div></div>
           <div className="flex-1 space-y-3 overflow-y-auto bg-slate-50/70 p-4" aria-live="polite">{activeMessages.map((m:any)=><article key={m.id} className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm ${m.sender_id===account.id?'ml-auto rounded-br-sm bg-emerald-700 text-white':'rounded-bl-sm border bg-white text-slate-800'}`}><p className="whitespace-pre-wrap break-words">{m.body}</p><p className={`mt-1 text-[10px] ${m.sender_id===account.id?'text-emerald-100':'text-slate-400'}`}>{m.sender_id===account.id?'You':(shop.owner_id===m.sender_id?'Shop':'Customer')} · {new Date(m.created_at).toLocaleString()}</p></article>)}</div>
           <form className="flex items-end gap-2 border-t bg-white p-3" onSubmit={send}><textarea className="inp min-h-12 flex-1 resize-y" maxLength={2000} value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Write a message…" disabled={busy}/><button className="btn" disabled={busy||!draft.trim()}>{busy?'Sending…':'Send ➤'}</button></form>
         </>:<div className="flex flex-1 flex-col items-center justify-center p-8 text-center"><span className="grid h-16 w-16 place-items-center rounded-full bg-emerald-50 text-3xl">💬</span><h2 className="mt-4 text-lg font-extrabold">Your messages, together</h2><p className="mt-2 max-w-sm text-sm leading-6 text-mute">Choose a conversation from the list, or find a shop to send the first message. Your private conversations will stay in this inbox.</p><a href="#/shops" className="btn mt-4">Find a shop</a></div>}
