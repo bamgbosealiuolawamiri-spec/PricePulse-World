@@ -22,7 +22,13 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - uses: android-actions/setup-android@v3
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: |
+            platform-tools
+            platforms;android-35
+            build-tools;35.0.0
       - name: Install dependencies
         run: npm install
       - name: Build web app
@@ -59,7 +65,7 @@ jobs:
       - name: Sync app assets
         run: npx cap sync ios
       - name: Build unsigned iOS Simulator app
-        run: xcodebuild -project ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -configuration Debug -derivedDataPath "$RUNNER_TEMP/PricePulseBuild" CODE_SIGNING_ALLOWED=NO build
+        run: xcodebuild -workspace ios/App/App.xcworkspace -scheme App -sdk iphonesimulator -configuration Debug -derivedDataPath "$RUNNER_TEMP/PricePulseBuild" CODE_SIGNING_ALLOWED=NO build
       - name: Upload iOS Simulator app
         uses: actions/upload-artifact@v4
         with:
