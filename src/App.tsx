@@ -148,8 +148,8 @@ export default function App(){
 
 function EntryChoice({onChoose}:{onChoose:(role:'customer'|'shop-owner'|'guest')=>void}){
   const choices=[
-    {role:'customer' as const,icon:'🛍️',title:'I’m a customer',description:'Compare prices, discover nearby shops, save products, and share prices you have checked.',action:'Continue as customer'},
-    {role:'shop-owner' as const,icon:'🏪',title:'I own a shop',description:'Create an account, register your real shop, and submit prices for review so shoppers can find you.',action:'Continue as shop owner'},
+    {role:'customer' as const,icon:'🛍️',title:'I’m a customer',description:'Compare prices, discover nearby shops, save products, and share prices you have checked.',action:'Start exploring'},
+    {role:'shop-owner' as const,icon:'🏪',title:'I own a shop',description:'Create an account, register your real shop, and submit prices for review so shoppers can find you.',action:'Set up my shop'},
     {role:'guest' as const,icon:'🌍',title:'Continue as guest',description:'Explore PricePulse World without creating an account. You can sign up later to submit prices or register a shop.',action:'Explore as guest'}
   ]
   return <main className="min-h-screen bg-slate-50 px-4 py-8 sm:py-12">
@@ -158,7 +158,7 @@ function EntryChoice({onChoose}:{onChoose:(role:'customer'|'shop-owner'|'guest')
         <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-[#063D2C] text-2xl text-white shadow-sm" aria-hidden="true">↗</div>
         <p className="text-xs font-extrabold uppercase tracking-[.2em] text-emerald-700">Know the price. Compare the world. Save smarter.</p>
         <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-5xl">Welcome to PricePulse <span className="text-emerald-700">World</span></h1>
-        <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-slate-600">Before you enter, tell us how you want to use PricePulse. We’ll tailor your starting point to you.</p>
+        <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-slate-600">Let’s get you started. Choose how you want to use PricePulse World.</p>
       </header>
       <section className="grid gap-4 md:grid-cols-3" aria-label="Choose how to use PricePulse World">
         {choices.map(choice=><article key={choice.role} className="flex flex-col rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md">
@@ -195,22 +195,22 @@ function Home({q,setQ,...c}:C){
     <section className="relative isolate overflow-hidden rounded-[2rem] bg-[#064E3B] px-6 py-10 text-white shadow-xl md:px-10 md:py-14">
       <div aria-hidden="true" className="absolute -right-12 -top-16 -z-10 h-72 w-72 rounded-full bg-emerald-400/30 blur-3xl"/>
       <div aria-hidden="true" className="absolute -bottom-24 left-1/3 -z-10 h-64 w-64 rounded-full bg-emerald-400/20 blur-3xl"/>
-      <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold tracking-wide text-emerald-50"><span className="h-2 w-2 rounded-full bg-emerald-300"/> LOCAL PRICES. SMARTER CHOICES.</div>
+      <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold tracking-wide text-emerald-50"><span className="h-2 w-2 rounded-full bg-emerald-300"/> BETTER PRICES START HERE</div>
       <div className="grid items-center gap-8 md:grid-cols-[1.2fr_.8fr]">
         <div>
-          <h1 className="max-w-2xl text-4xl font-black leading-[1.08] tracking-tight md:text-6xl">Compare product prices.<br/><span className="text-emerald-300">Keep more money.</span></h1>
-          <p className="mt-5 max-w-xl text-base leading-7 text-slate-200 md:text-lg">Compare community-reported prices, discover nearby shops, and make a more confident choice before you buy.</p>
+          <h1 className="max-w-2xl text-4xl font-black leading-[1.08] tracking-tight md:text-6xl">Find the right price.<br/><span className="text-emerald-300">Shop with confidence.</span></h1>
+          <p className="mt-5 max-w-xl text-base leading-7 text-slate-200 md:text-lg">Search for what you need, compare community-reported prices, and discover nearby shops before you buy.</p>
           <form className="mt-7 flex flex-col gap-2 rounded-2xl bg-white p-2 shadow-lg sm:flex-row" role="search" onSubmit={e=>{e.preventDefault();go('/search?q='+encodeURIComponent(q))}}>
             <span className="hidden items-center pl-3 text-xl text-slate-400 sm:flex" aria-hidden="true">⌕</span>
-            <input aria-label="Search products" className="min-w-0 flex-1 border-0 px-3 py-3 text-sm text-[#1F2937] outline-none ring-0 placeholder:text-slate-400 focus:ring-0" placeholder="What do you want to price-check?" value={q} onChange={e=>setQ(e.target.value)}/>
-            <button className="rounded-xl bg-slate-100 px-6 py-3 text-sm font-bold text-[#064E3B] transition hover:bg-slate-200">Search prices <span aria-hidden="true">→</span></button>
+            <input aria-label="Search products" className="min-w-0 flex-1 border-0 px-3 py-3 text-sm text-[#1F2937] outline-none ring-0 placeholder:text-slate-400 focus:ring-0" placeholder="What are you looking for?" value={q} onChange={e=>setQ(e.target.value)}/>
+            <button className="rounded-xl bg-slate-100 px-6 py-3 text-sm font-bold text-[#064E3B] transition hover:bg-slate-200">Find prices <span aria-hidden="true">→</span></button>
           </form>
           <a className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-400 px-6 py-3.5 text-sm font-extrabold text-[#063D2C] shadow-lg transition hover:bg-emerald-300" href="https://github.com/bamgbosealiuolawamiri-spec/PricePulse-World/releases/download/android-download/app-debug.apk">Download the App <span aria-hidden="true">↓</span></a>
           <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs text-slate-300"><span>✓ Community submitted</span><span>✓ Verification first</span><span>✓ Starting in Lagos</span></div>
         </div>
         <div className="mx-auto w-full max-w-sm">
           <div className="rounded-3xl border border-white/15 bg-white/[0.08] p-5 shadow-2xl backdrop-blur">
-            <div className="flex items-center justify-between"><span className="text-sm font-semibold text-slate-100">PricePulse snapshot</span><span className="rounded-full bg-emerald-300/15 px-2.5 py-1 text-[11px] font-bold text-emerald-200">LIVE COMMUNITY</span></div>
+            <div className="flex items-center justify-between"><span className="text-sm font-semibold text-slate-100">Your community snapshot</span><span className="rounded-full bg-emerald-300/15 px-2.5 py-1 text-[11px] font-bold text-emerald-200">COMMUNITY DATA</span></div>
             <div className="mt-5 grid grid-cols-2 gap-3">
               <div className="rounded-2xl bg-white/10 p-4"><p className="text-3xl font-black">{approvedPrices.length}</p><p className="mt-1 text-xs text-slate-300">Approved prices</p></div>
               <div className="rounded-2xl bg-white/10 p-4"><p className="text-3xl font-black">{verifiedShops.length}</p><p className="mt-1 text-xs text-slate-300">Verified shops</p></div>
@@ -222,7 +222,7 @@ function Home({q,setQ,...c}:C){
     </section>
 
     <section>
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.18em] text-emerald-700">Explore</p><h2 className="mt-1 text-2xl font-extrabold tracking-tight text-[#1F2937]">What are you shopping for?</h2><p className="mt-1 text-sm text-slate-500">Start with a category or search for a specific item.</p></div><a href="#/search" className="text-sm font-bold text-emerald-700 hover:underline">Browse all →</a></div>
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.18em] text-emerald-700">Explore</p><h2 className="mt-1 text-2xl font-extrabold tracking-tight text-[#1F2937]">What would you like to find?</h2><p className="mt-1 text-sm text-slate-500">Choose a category or search for a product.</p></div><a href="#/search" className="text-sm font-bold text-emerald-700 hover:underline">Browse all →</a></div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
         {CATS.map((k,i)=><a key={k} className="group flex min-h-24 items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md" href={'#/search?q=&cat='+encodeURIComponent(k)}><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-emerald-50 text-xl text-emerald-700 transition group-hover:bg-emerald-100">{['🛒','📱','🏠','🔌','🥫','🧴','👕','🧰'][i%8]}</span><span className="text-sm font-bold text-slate-800">{k}</span><span className="ml-auto text-slate-400 transition group-hover:translate-x-1 group-hover:text-emerald-700">→</span></a>)}
       </div>
@@ -230,11 +230,11 @@ function Home({q,setQ,...c}:C){
 
     <section className="grid gap-4 md:grid-cols-2">
       <a href="#/submit" className="group rounded-3xl border border-emerald-100 bg-gradient-to-br from-blue-50 to-white p-6 transition hover:border-emerald-300 hover:shadow-md"><span className="grid h-12 w-12 place-items-center rounded-2xl bg-emerald-600 text-2xl text-white">＋</span><h2 className="mt-4 text-xl font-extrabold text-slate-900">Share a price</h2><p className="mt-2 max-w-sm text-sm leading-6 text-slate-600">Seen a price in a shop? Submit it to help other shoppers make informed decisions. Submissions are marked pending until reviewed.</p><span className="mt-4 inline-flex font-bold text-emerald-700">Submit a price <span className="ml-2 transition group-hover:translate-x-1">→</span></span></a>
-      <a href="#/shops" className="group rounded-3xl border border-slate-200 bg-white p-6 transition hover:border-emerald-300 hover:shadow-md"><span className="grid h-12 w-12 place-items-center rounded-2xl bg-slate-900 text-2xl text-white">⌖</span><h2 className="mt-4 text-xl font-extrabold text-slate-900">Find local shops</h2><p className="mt-2 max-w-sm text-sm leading-6 text-slate-600">Discover shops around your selected area. Verified listings are clearly labelled so you can see what has been checked.</p><span className="mt-4 inline-flex font-bold text-emerald-700">Explore shops <span className="ml-2 transition group-hover:translate-x-1">→</span></span></a>
+      <a href="#/shops" className="group rounded-3xl border border-slate-200 bg-white p-6 transition hover:border-emerald-300 hover:shadow-md"><span className="grid h-12 w-12 place-items-center rounded-2xl bg-slate-900 text-2xl text-white">⌖</span><h2 className="mt-4 text-xl font-extrabold text-slate-900">Find local shops</h2><p className="mt-2 max-w-sm text-sm leading-6 text-slate-600">Explore shops in your area and look for the verified badge to see which listings have been checked.</p><span className="mt-4 inline-flex font-bold text-emerald-700">Explore shops <span className="ml-2 transition group-hover:translate-x-1">→</span></span></a>
     </section>
 
     <section>
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.18em] text-emerald-700">Community listings</p><h2 className="mt-1 text-2xl font-extrabold tracking-tight text-[#1F2937]">Prices checked by people</h2><p className="mt-1 text-sm text-slate-500">Only approved submissions appear here.</p></div><span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">{approvedPrices.length} approved</span></div>
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.18em] text-emerald-700">Community listings</p><h2 className="mt-1 text-2xl font-extrabold tracking-tight text-[#1F2937]">Prices shared by shoppers</h2><p className="mt-1 text-sm text-slate-500">Only approved community reports appear here.</p></div><span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">{approvedPrices.length} approved</span></div>
       {approvedPrices.length>0?<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{approvedPrices.map((s:any,i:number)=><article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" key={s.saved||i}><div className="flex items-start justify-between gap-3"><h3 className="font-bold text-slate-900">{s.product}</h3><span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">✓ Approved</span></div><p className="mt-3 text-2xl font-black tracking-tight text-emerald-700">{money(Number(s.price),s.currency||'USD')}</p><p className="mt-1 text-sm text-slate-600">{s.shop} · {s.area}</p><p className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-400">Price reported: {s.date||'Date not provided'}</p></article>)}</div>:<div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center"><span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-white text-2xl shadow-sm">🧾</span><h3 className="mt-4 text-lg font-extrabold text-slate-900">No approved prices yet</h3><p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">We won't invent prices or shops. Be one of the first to submit a price and help build a useful local price guide.</p><a href="#/submit" className="mt-5 inline-flex rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white hover:bg-emerald-700">Submit the first price →</a></div>}
     </section>
 
@@ -253,7 +253,7 @@ function Search({q,cat,...c}:C){
   const results=groups.sort((a:any,b:any)=>String(a.country).localeCompare(String(b.country)))
   return <div><form className="mb-4 flex gap-2" role="search" onSubmit={e=>{e.preventDefault();go('/search?q='+encodeURIComponent(text)+(cat?'&cat='+encodeURIComponent(cat):''))}}><input aria-label="Search" className="inp" value={text} onChange={e=>setText(e.target.value)} placeholder="Search verified community prices worldwide"/><button className="btn">Search</button></form>
     <div className="mb-4 flex flex-wrap items-center gap-2"><span className="chip">Approved real reports only</span><select aria-label="Sort" className="ml-auto rounded-lg border px-2 py-1 text-sm" value={sort} onChange={e=>setSort(e.target.value)}><option value="country">Country / market</option></select></div>
-    {!results.length?<Empty t="No approved prices found" d="Try another search, or submit a real price you have checked. We do not generate sample prices."/>:<div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">{results.map((g:any)=><article className="card" key={g.key}><span className="chip">{g.country}</span><h2 className="mt-2 font-bold">{g.product}</h2><p className="mt-2 text-2xl font-extrabold text-deep">{money(g.reports[0].price,g.currency)}</p><p className="mt-1 text-sm text-mute">Lowest approved report in {g.currency} · {g.reports[0].shop}</p><p className="mt-2 text-xs text-mute">{g.reports.length} approved report(s) · {g.reports[0].area}</p></article>)}</div>}</div>
+    {!results.length?<Empty t="No matching prices yet" d="Try another search, or share a price you have checked. Only approved reports appear in results."/>:<div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">{results.map((g:any)=><article className="card" key={g.key}><span className="chip">{g.country}</span><h2 className="mt-2 font-bold">{g.product}</h2><p className="mt-2 text-2xl font-extrabold text-deep">{money(g.reports[0].price,g.currency)}</p><p className="mt-1 text-sm text-mute">Lowest approved report in {g.currency} · {g.reports[0].shop}</p><p className="mt-2 text-xs text-mute">{g.reports.length} approved report(s) · {g.reports[0].area}</p></article>)}</div>}</div>
 }
 
 function Detail({id,...c}:C){
@@ -314,10 +314,10 @@ function Shops(c:C){
     }catch(err){setFormError(err instanceof Error?err.message:'Could not save the shop. Please try again.')}
     finally{setBusy(false)}
   }
-  return <div className="space-y-4"><h1 className="text-2xl font-extrabold">Shops around the world</h1><p className="text-sm text-mute">Register a real shop in any country. New registrations are shared through Supabase and remain pending until verified.</p>
+  return <div className="space-y-4"><h1 className="text-2xl font-extrabold">Find shops near you</h1><p className="text-sm text-mute">Add your shop in any country. New registrations are shared through Supabase and remain pending until verified.</p>
     <MapView center={c.loc} loc={c.loc} shops={list}/>
     {followError&&<p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{followError}</p>}
-    <form className="card space-y-3" onSubmit={saveShop}><h2 className="font-bold">Register a real shop</h2>
+    <form className="card space-y-3" onSubmit={saveShop}><h2 className="font-bold">Add your shop</h2>
       {!c.account&&<p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Log in first to submit a shop.</p>}
       <label className="block text-sm font-medium">Shop name<input required name="name" className="inp mt-1" placeholder="Real shop or business name"/></label>
       <label className="block text-sm font-medium">Street address<input required name="address" className="inp mt-1" placeholder="Street address or shop location"/></label>
@@ -745,8 +745,8 @@ function Submit(c:C){
     }catch(e){setErr(e instanceof Error?e.message:'Could not save the price report. Please try again.')}
     finally{setBusy(false)}
   }
-  return <div className="mx-auto max-w-xl space-y-4"><h1 className="text-2xl font-extrabold">Submit a real price</h1>
-    <p className="text-sm text-mute">Report the price you actually saw in a shop anywhere in the world. Add a clear photo of the product or price label as evidence. Reports remain pending until reviewed.</p>
+  return <div className="mx-auto max-w-xl space-y-4"><h1 className="text-2xl font-extrabold">Share a price</h1>
+    <p className="text-sm text-mute">Tell us the price you actually saw in a shop. Add the product details and location so other shoppers can compare. Every report is reviewed before it is approved.</p>
     {!c.account&&<p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Log in first to submit a price report.</p>}
     {done&&<p role="status" className="rounded-xl bg-soft p-3 text-sm text-deep">Your price report was saved to the shared database and is pending verification.</p>}
     {err&&<p role="alert" className="text-sm text-red-600">{err}</p>}
@@ -758,7 +758,7 @@ function Submit(c:C){
       <label className="block text-sm font-medium">Price<input required min="0.01" step="0.01" inputMode="decimal" className="inp mt-1" type="number" value={f.price} onChange={e=>set('price',e.target.value)} placeholder="Actual shelf or checkout price"/></label>
       <label className="block text-sm font-medium">Date seen<input required className="inp mt-1" type="date" max={new Date().toISOString().slice(0,10)} value={f.date} onChange={e=>set('date',e.target.value)}/></label>
       <div className="space-y-2"><label htmlFor="price-report-photo" className="block text-sm font-semibold">Product / price photo <span className="font-normal text-slate-500">(optional)</span></label><input id="price-report-photo" type="file" accept="image/jpeg,image/png,image/webp" disabled={busy||!c.account} onChange={e=>setPhoto(e.target.files?.[0]||null)} className="block w-full rounded-xl border border-slate-200 bg-white p-3 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-50 file:px-3 file:py-2 file:font-semibold file:text-emerald-800"/><p className="text-xs text-slate-500">JPG, PNG or WebP · max 5 MB. Avoid photos showing faces or private information.</p>{photoPreview&&<div className="space-y-2"><img src={photoPreview} alt="Preview of selected product or price photo" className="max-h-64 w-full rounded-xl border border-slate-200 object-contain"/><button type="button" className="btn2" disabled={busy} onClick={()=>{setPhoto(null);const input=document.getElementById('price-report-photo') as HTMLInputElement|null;if(input)input.value=''}}>Remove photo</button></div>}</div>
-      <button disabled={busy||!c.account} type="submit" className="btn w-full">{busy?'Uploading and submitting…':'Submit price report'}</button>
+      <button disabled={busy||!c.account} type="submit" className="btn w-full">{busy?'Uploading and submitting…':'Share price'}</button>
     </form>
     {c.subs.length>0&&<section><h2 className="mb-2 font-bold">Shared price reports</h2><ul className="space-y-2">{c.subs.map((r:any)=><li key={r.id} className="card text-sm"><p className="font-semibold">{r.product}</p><p>{money(Number(r.price),r.currency||'USD')} · {r.shop}, {r.area} · {r.date}</p><p className="mt-1 text-xs text-amber-800">{r.status}</p></li>)}</ul></section>}
   </div>
