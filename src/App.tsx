@@ -457,7 +457,7 @@ function Community(c:C){
       const allUserIds=[...new Set([...userIds,...commentUserIds])]
       let profileMap:Record<string,any>={}
       if(allUserIds.length){
-        const profileRows=await dbRequest<any[]>('public_profiles',{account:c.account,query:'select=id,display_name,username,bio,avatar_url&id=in.('+allUserIds.join(',')+')'})
+        const profileRows=await dbRequest<any[]>('public_profiles',{account:c.account,query:'select=id,display_name,username,bio,avatar_url,is_verified&id=in.('+allUserIds.join(',')+')'})
         ;(profileRows||[]).forEach((p:any)=>{profileMap[p.id]=p})
       }
       setPosts(postList);setFollowing((followRows||[]).map((x:any)=>String(x.following_id)))
@@ -542,7 +542,7 @@ function Community(c:C){
       const liked=!!c.account&&postLikes.some((x:any)=>x.user_id===c.account.id)
       const postComments=comments.filter((x:any)=>x.post_id===p.id)
       return <article key={p.id} className="card space-y-3">
-        <div className="flex items-start justify-between gap-3"><div className="flex min-w-0 items-center gap-3"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-50 font-bold text-emerald-800" aria-hidden="true">{author.slice(0,1).toUpperCase()}</div><div className="min-w-0"><p className="font-bold">{author}</p><p className="text-xs text-mute">{new Date(p.created_at).toLocaleString()}</p></div></div>{c.account&&p.author_id!==c.account.id&&<button className="btn2 !px-3 !py-1.5 text-xs" disabled={busy==='follow:'+p.author_id} onClick={()=>void toggleFollow(p.author_id)}>{following.includes(p.author_id)?'Following':'Follow'}</button>}</div>
+        <div className="flex items-start justify-between gap-3"><div className="flex min-w-0 items-center gap-3"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-50 font-bold text-emerald-800" aria-hidden="true">{author.slice(0,1).toUpperCase()}</div><div className="min-w-0"><p className="flex flex-wrap items-center gap-1 font-bold">{author}{profile.is_verified&&<VerifiedBadge/>}</p><p className="text-xs text-mute">{new Date(p.created_at).toLocaleString()}</p></div></div>{c.account&&p.author_id!==c.account.id&&<button className="btn2 !px-3 !py-1.5 text-xs" disabled={busy==='follow:'+p.author_id} onClick={()=>void toggleFollow(p.author_id)}>{following.includes(p.author_id)?'Following':'Follow'}</button>}</div>
         <p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-800">{p.body}</p>
         <div className="flex flex-wrap items-center gap-3 border-y border-slate-100 py-2 text-sm"><button className={liked?'font-bold text-emerald-700':'text-slate-600'} aria-pressed={liked} disabled={!c.account||busy==='like:'+p.id} onClick={()=>void toggleLike(p.id)}>♥ {postLikes.length} {postLikes.length===1?'like':'likes'}</button><span className="text-xs text-mute">💬 {postComments.length} comments</span><span className="ml-auto text-[11px] text-mute">Community post</span></div>
         <div className="space-y-2">{postComments.slice(-3).map((comment:any)=><div key={comment.id} className="rounded-xl bg-slate-50 px-3 py-2"><p className="text-xs font-bold">{profiles[comment.user_id]?.display_name||'PricePulse member'}</p><p className="mt-1 whitespace-pre-wrap break-words text-sm">{comment.body}</p></div>)}
