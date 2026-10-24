@@ -123,6 +123,15 @@ export default function App(){
       {route==='admin'&&<Admin {...ctx}/>}
       {!['','community','messages','verification','search','p','shops','basket','saved','submit','admin','auth'].includes(route)&&<Empty t="Page not found" d="That page doesn't exist."/>}
     </main>
+    <nav className="native-tabbar" aria-label="Mobile navigation">
+      {[
+        {path:'/', label:'Home', icon:'⌂', active:route===''},
+        {path:'/search', label:'Explore', icon:'⌕', active:route==='search'||route==='p'},
+        {path:'/shops', label:'Shops', icon:'⌖', active:route==='shops'||route==='verification'},
+        {path:'/saved', label:'Saved', icon:'♡', active:route==='saved'},
+        {path:'/auth', label:account?'Account':'Account', icon:'◉', active:route==='auth'}
+      ].map(item=><a key={item.path} href={'#'+item.path} aria-current={item.active?'page':undefined} className={item.active?'active':''}><span className="native-tab-icon" aria-hidden="true">{item.icon}</span><span>{item.label}</span></a>)}
+    </nav>
     <footer className="border-t bg-soft px-4 py-6 text-center text-xs text-mute">
       <section className="mx-auto mb-4 max-w-2xl rounded-2xl border border-emerald-100 bg-white px-5 py-4 text-left shadow-sm" aria-labelledby="creator-credit-title">
         <p className="text-[11px] font-bold uppercase tracking-[.16em] text-emerald-700">About the creator</p>
