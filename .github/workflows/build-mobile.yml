@@ -1,0 +1,75 @@
+name: Build PricePulse World mobile apps
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/android-mobile-app
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Build Android test APK
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install Android SDK packages
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+      - name: Install dependencies
+        run: npm install
+      - name: Build web app
+        run: npm run build
+      - name: Generate Android project
+        run: npx cap add android
+      - name: Sync app assets
+        run: npx cap sync android
+      - name: Build debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug
+      - name: Upload Android test APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: pricepulse-world-android-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  ios-simulator:
+    name: Build iOS Simulator app
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependencies
+        run: npm install
+      - name: Build web app
+        run: npm run build
+      - name: Generate iOS project
+        run: npx cap add ios
+      - name: Sync app assets
+        run: npx cap sync ios
+      - name: Build unsigned iOS Simulator app
+        run: xcodebuild -workspace ios/App/App.xcworkspace -scheme App -sdk iphonesimulator -configuration Debug -derivedDataPath "$RUNNER_TEMP/PricePulseBuild" CODE_SIGNING_ALLOWED=NO build
+      - name: Upload iOS Simulator app
+        uses: actions/upload-artifact@v4
+        with:
+          name: pricepulse-world-ios-simulator
+          path: ${{ runner.temp }}/PricePulseBuild/Build/Products/Debug-iphonesimulator/App.app
+          if-no-files-found: error
+          retention-days: 14
