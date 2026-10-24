@@ -1,32 +1,48 @@
 # PricePulse World mobile app
 
-PricePulse World is being prepared as an Android app using Capacitor, reusing the existing React/Vite app and its current design.
+PricePulse World is being prepared for Android and iOS with Capacitor, sharing the core React app while using a more app-like mobile layout: bottom tab navigation, larger touch targets, rounded surfaces, and safe-area support. The mobile-only styles do not change the regular website layout.
 
-## Build an Android APK with GitHub Actions
+## Build test packages with GitHub Actions
 
-1. Push or merge the mobile-app setup into GitHub.
-2. Open the repository's **Actions** tab.
-3. Select **Build PricePulse World Android app**.
-4. Select **Run workflow** when the workflow is available, then run it on the mobile-app branch.
-5. Open the completed run and download the `pricepulse-world-android-debug` artifact.
-6. Extract the ZIP file to get `app-debug.apk`, then transfer it to an Android phone and install it. Android may ask you to allow installation from the app you used to open the file.
+1. Open the repository's **Actions** tab.
+2. Select **Build PricePulse World mobile apps**.
+3. Choose **Run workflow** and select the `feature/android-mobile-app` branch, or push a new commit to that branch.
+4. When the run finishes, open it and download the artifact you need.
 
-The debug APK is for testing and is not a Play Store release. A signed release build, store listing, privacy policy review, and final testing are needed before publishing to Google Play.
+### Android
+Download `pricepulse-world-android-debug`, extract the ZIP, and install `app-debug.apk` on an Android phone for testing. Android may ask you to allow installation from the app used to open the file.
+
+### iPhone / iOS
+The workflow creates an **unsigned iOS Simulator app** for build verification, not an installable iPhone IPA. Running on a physical iPhone or publishing through TestFlight/App Store requires Apple signing and provisioning, normally through an Apple Developer account and App Store Connect. We will configure that release path separately.
 
 ## Build locally
 
-Requirements: Node.js 20+, Android Studio with the Android SDK, and Java 21.
+Requirements: Node.js 20+, Android Studio and Android SDK for Android, and a Mac with Xcode for iOS.
 
 ```bash
 npm install
 npm run build
+
+# Android (on a machine with Android Studio/SDK)
 npx cap add android
 npx cap sync android
 npx cap open android
+
+# iOS (on macOS with Xcode)
+npx cap add ios
+npx cap sync ios
+npx cap open ios
 ```
 
-After the Android project has been created once, use `npm run mobile:sync` to rebuild the web app and copy it into Android.
+After the native project has been generated once, run `npm run mobile:sync` to rebuild the web app and sync the native projects.
 
-## Important product note
+## Design direction
 
-The mobile wrapper uses the current PricePulse World web app. Packaging it does not, by itself, add missing backend features or make sample data real. Verify authentication, price submissions, moderation, map/location permissions, and all user flows on a real device before public release.
+- Deep forest green with bright green accents and soft neutral backgrounds.
+- Native-feeling bottom navigation for Home, Explore, Shops, Saved and Account.
+- Comfortable touch targets, rounded cards and inputs, and safe-area spacing.
+- Keep web-only presentation unchanged.
+
+## Release readiness
+
+The mobile wrapper reuses the current app; packaging does not automatically make sample data real or verify every feature. Before public release, test sign-in and session recovery, price submissions and approval, shop verification, messages, location permissions, maps, offline/error states, and all flows on physical devices. Debug APKs and unsigned simulator builds are for development only, not store release builds.
