@@ -109,3 +109,19 @@ create policy "Users can restore their own conversations"
   using (auth.uid() = user_id);
 revoke all on public.shop_message_archives from anon;
 grant select, insert, delete on public.shop_message_archives to authenticated;
+
+
+-- Include the public verification state in the existing safe public profile view.
+create or replace view public.public_profiles
+with (security_barrier = true)
+as
+  select
+    p.id,
+    coalesce(nullif(btrim(p.username), ''), nullif(btrim(p.full_name), ''), 'PricePulse member') as display_name,
+    p.username,
+    p.bio,
+    p.avatar_url,
+    p.is_verified
+  from public.profiles p;
+
+grant select on public.public_profiles to anon, authenticated;
