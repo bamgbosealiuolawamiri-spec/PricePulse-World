@@ -205,3 +205,128 @@ body.native-app {
     transform: scale(0.97);
   }
 }
+
+
+/* Premium Green + Fresh Modern mobile polish */
+.native-app #root > main.min-h-screen {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgb(11 169 91 / 0.10), transparent 48%),
+    #f7faf8;
+  padding: calc(26px + env(safe-area-inset-top, 0px)) 18px 36px;
+}
+.native-app #root > main.min-h-screen > div {
+  max-width: 560px;
+}
+.native-app #root > main.min-h-screen > div > header {
+  margin-bottom: 28px;
+}
+.native-app #root > main.min-h-screen > div > header > div:first-child {
+  border: 1px solid rgb(126 240 68 / 0.25);
+  background: linear-gradient(145deg, #063d2c, #0ba95b);
+  box-shadow: 0 12px 30px rgb(6 61 44 / 0.18);
+}
+.native-app #root > main.min-h-screen > div > header h1 {
+  font-size: clamp(2rem, 8vw, 2.7rem);
+  line-height: 1.08;
+  letter-spacing: -0.045em;
+}
+.native-app #root > main.min-h-screen > div > header > p:last-child {
+  max-width: 340px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.65;
+}
+.native-app #root > main.min-h-screen article {
+  border-radius: 26px;
+  border-color: #e5eee8;
+  padding: 22px;
+  box-shadow: 0 8px 26px rgb(6 61 44 / 0.055);
+}
+.native-app #root > main.min-h-screen article > span:first-child {
+  border: 1px solid #e0f2e7;
+  background: linear-gradient(145deg, #eefbf3, #dff6e8);
+}
+.native-app #root > main.min-h-screen article h2 {
+  letter-spacing: -0.025em;
+}
+.native-app #root > main.min-h-screen article button {
+  min-height: 50px;
+  border-radius: 16px;
+}
+.native-app #root > main.min-h-screen > div > p:last-child {
+  line-height: 1.65;
+}
+.native-app #main > div.space-y-10 > section:first-child {
+  border: 1px solid rgb(255 255 255 / 0.10);
+  border-radius: 28px;
+  background: linear-gradient(145deg, #063d2c 0%, #075b3e 54%, #0ba95b 130%);
+  box-shadow: 0 14px 34px rgb(6 61 44 / 0.14);
+}
+.native-app #main > div.space-y-10 > section:first-child h1 {
+  font-size: clamp(2rem, 8vw, 3.25rem);
+  line-height: 1.04;
+  letter-spacing: -0.045em;
+}
+.native-app #main > div.space-y-10 > section:first-child form[role="search"] {
+  gap: 6px;
+  border: 1px solid #e2eee6;
+  border-radius: 18px;
+  box-shadow: 0 10px 28px rgb(0 0 0 / 0.12);
+}
+.native-app #main > div.space-y-10 > section:first-child form[role="search"] input {
+  min-width: 0;
+  font-size: 16px;
+}
+.native-app #main > div.space-y-10 > section:first-child form[role="search"] button {
+  min-height: 48px;
+  border-radius: 13px;
+  background: #e6f8ed;
+}
+.native-app #main > div.space-y-10 > section:first-child > div > div:last-child > div {
+  border-radius: 22px;
+}
+.native-app #main > div.space-y-10 > section:not(:first-child) h2 {
+  letter-spacing: -0.03em;
+}
+.native-app #main > div.space-y-10 > section:nth-child(2) a {
+  border-radius: 19px;
+  min-height: 82px;
+}
+.native-app #main > div.space-y-10 > section:nth-child(3) > a {
+  border-radius: 23px;
+}
+.native-app #main .card {
+  background-color: #fff;
+}
+.native-app .native-tabbar {
+  padding-left: max(10px, env(safe-area-inset-left, 0px));
+  padding-right: max(10px, env(safe-area-inset-right, 0px));
+}
+.native-app .native-tabbar a {
+  min-height: 54px;
+  font-size: 11px;
+}
+.native-app .native-tabbar a:focus-visible {
+  outline: 2px solid #0ba95b;
+  outline-offset: 1px;
+}
+@media (max-width: 380px) {
+  .native-app #root > main.min-h-screen {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  .native-app #root > main.min-h-screen article {
+    padding: 18px;
+  }
+  .native-app #main > div.space-y-10 > section:first-child {
+    padding: 22px 18px;
+  }
+  .native-app .native-tabbar {
+    gap: 0;
+    padding-left: 5px;
+    padding-right: 5px;
+  }
+  .native-app .native-tabbar a {
+    font-size: 10px;
+  }
+}
